@@ -31,6 +31,7 @@ Full detail in `docs/DESIGN.md`. Quick reference:
 - **No XP ever for pace, distance, PRs, or comparative metrics.**
 - **Lifetime weeks completed** is important but lives on the stats screen, not the home screen. Current streak = secondary, soft-breaks gracefully.
 - **HARD RULE: no predatory notifications.** Predatory = loss-aversion ("your streak ends in 4 hours"). Encouragement OK; threats forbidden. Use the term "predatory notifications" in design discussion.
+- **Positive notifications (§3.21, partially resolved).** Three categories in v1: *reminders* (invitations), *celebrations* (post-event), *re-engagement* (warm "we miss you", most constrained). Tips excluded (in-app only). Opt-in asked during onboarding on screen 4 with a **mandatory in-app pre-prompt** before the OS prompt; single ask, per-category toggles in settings. Still open: reminder scheduling/timing, frequency caps, exact wording.
 - **Level calibration:** onboarding self-rated brackets (not a fitness test) + always-available manual adjust + soft system nudge.
 - **In-run experience:** minimal audio cues for walk/run transitions, map + elapsed time on screen. No encouragement, no coach voice, no mid-run gamification. App disappears.
 - **Run-type toggle:** walk/run interval (default), just run, or just walk. User picks before starting.
@@ -40,10 +41,15 @@ Full detail in `docs/DESIGN.md`. Quick reference:
 - **Weekly schedule:** user picks 2 or 3 sessions. Changeable between weeks only.
 - **Brackets map to both** session duration and walk/run ratio. Exact numbers TBD.
 - **Solo for v1.** No social features. Community/guilds parked (not rejected).
-- **Freemium.** Core loop free forever. No ads ever. Premium contents TBD.
+- **Freemium.** Core loop free forever. No ads ever. **v1 ships free-only — no paywall, no patron tier (§3.16).** Premium is a v2 concern, designed when the additive content it gates (audio, programs, cosmetics) exists; it must never make free feel incomplete.
 - **Cross-platform.** iOS + Android from day one.
 - **Tech stack:** React Native + Expo (with EAS Build). Supabase as backend (soft-locked). Apple + Google sign-in only for v1 (no email/password). Google Maps for the in-run map. See §3.19 in DESIGN.md.
-- **Level progression mechanics: PARKED.** What leveling up changes is unresolved — tension between gating functionality and keeping the app usable as a normal running tool.
+- **Level progression mechanics: RESOLVED (§3.20).** Full model locked; only numerical tuning (exact step sizes / XP amounts) deferred to prototyping. Key points:
+  - **Decoupled into two tracks.** *Calibration* (difficulty — readiness-driven: bracket, manual adjust, soft nudge; never XP) vs. *XP/level* (the reward — showing-up-driven; never changes the prescription). This dissolved the old "gating vs. hollow" tension.
+  - **Level-up gives:** v1 status marker only; v2 cosmetics. HARD RULE — leveling up may change how the app looks or what it calls you, never what it lets you do. Functional unlocks rejected.
+  - **Calibration advances** via conservative auto-advance (announced, with a brake), completion-driven signal, per-completed-week cadence, never auto-demotes.
+  - **Calibration is invisible** (no fitness number — anti-elitism); XP/level is the only number in the UI. Ability shown only as prescription-history narrative on stats.
+  - **XP curve:** front-loaded then linear, no cap, ~one level per completed week. Accelerating/RPG curves rejected.
 
 ## Working style
 
@@ -54,3 +60,17 @@ Full detail in `docs/DESIGN.md`. Quick reference:
 - **Non-developer audience — explain technical terms on first use.** The user is technical but not a developer. Abbreviations and jargon are fine, but spell them out the first time they appear in a conversation and briefly say what they mean. E.g., "OTA (over-the-air) updates — pushing app changes without going through the app store." After the first explanation, the term can be used freely. Don't strip terminology out — just don't assume it's already understood.
 
 All design status, open questions, and deferred topics live in `docs/DESIGN.md`. This file is for project context only.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs live as GitHub issues on `ekstrap/RunQuest` (via the `gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`); not yet created in GitHub — made on first use. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context; domain vocabulary lives in `docs/DESIGN.md` (glossary in §6), no ADRs yet. See `docs/agents/domain.md`.

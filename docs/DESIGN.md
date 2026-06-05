@@ -2,7 +2,7 @@
 
 > Working name: **RunQuest** (placeholder, not committed).
 > Status: design phase, in progress.
-> Last updated: 2026-06-01.
+> Last updated: 2026-06-05.
 
 ---
 
@@ -41,6 +41,7 @@ Any mechanic that could induce shame, comparison, or competitive pressure is **r
 - v1 uses **XP and levels** — the simplest, most generic primitive.
 - Generic primitives become non-generic through *what they reward* and *how they fail gracefully* — that's where the design fight lives.
 - Richer metaphors (quest/journey, RPG character, garden/pet, collection) are explicitly parked for v2/v3.
+- Note: "level" here means the **XP-reward track only**. A user's *ability/difficulty* is a separate, decoupled track — see §3.20.
 
 ### 3.3 Coach model — flexible coach
 
@@ -54,7 +55,7 @@ Any mechanic that could induce shame, comparison, or competitive pressure is **r
 - Each session is a **single, friendly prompt** — e.g., `"walk/run for 10 minutes"` — calibrated to current level.
 - **Walk/run interval** is the default movement pattern. Best beginner physiology, AND mathematically guarantees no one fails.
 - No run-type taxonomy. No "easy / interval / long." No jargon.
-- Level progression smoothly nudges duration upward over time.
+- Calibration (ability) smoothly nudges duration upward over time as the user is ready (§3.20) — this is the *ability* track, not the XP/level reward track.
 
 ### 3.5 Time-based prompts, distance as celebration
 
@@ -82,17 +83,17 @@ Any mechanic that could induce shame, comparison, or competitive pressure is **r
 
 **Design principle:** flat within a session to avoid pushing users toward injury or "performing." Scaled by weekly commitment to reward the choice to show up more often. The line is: *frequency of showing up* can scale XP, *intensity or output within a session* cannot.
 
-### 3.7 Level calibration
+### 3.7 Ability calibration
 
-Because flat-XP-per-session only works when the level matches the user's actual ability, three mechanisms keep the level honest:
+This is the **ability/difficulty track** (§3.20), distinct from the XP/level reward. Because flat-XP-per-session only works when the calibration matches the user's actual ability, three mechanisms keep it honest — all driven by *readiness*, never by XP:
 
 1. **Onboarding calibration** — self-rated activity brackets (*never run before* / *run occasionally* / *getting back into it*). **Not a fitness test** — too elitist and intimidating.
-2. **Manual level adjustment, always available** — prominent "too easy / too hard, adjust" control. Users are trusted to know their own bodies.
-3. **Soft system nudge** — after consistent easy completions or "too easy" ratings, the app suggests a level bump. Never auto-applies.
+2. **Manual calibration adjustment, always available** — prominent "too easy / too hard, adjust" control. Users are trusted to know their own bodies.
+3. **Soft system nudge** — after consistent easy completions or "too easy" ratings, the app suggests a calibration bump. Never auto-applies.
 
 **Crucial distinction (don't conflate):**
 - "I want to do extra after my prescribed run" → solved by the small free-run XP.
-- "The prescription is too small for me" → solved by raising the level.
+- "The prescription is too small for me" → solved by raising the calibration.
 - Merging these would re-introduce effort-scaling XP through the back door.
 
 ### 3.8 Failure / missed-week model
@@ -154,7 +155,7 @@ The home screen is an **action screen** — "here's what to do and how close you
 Three elements:
 1. **Next suggested session** — e.g., "Walk/run for 12 minutes" with a prominent Start button. Primary call to action, dominates the screen.
 2. **Week progress** — "1 of 3 sessions this week." Answers "am I on track?"
-3. **Current level + XP progress bar** — gamification payoff, visible but not dominant.
+3. **Current level + XP progress bar** — gamification payoff (the XP/level reward track, §3.20), visible but not dominant.
 
 A separate **stats/profile screen** holds:
 - Lifetime weeks completed (important, but not home-screen material).
@@ -192,7 +193,7 @@ Four screens, designed to get the user running within 60 seconds:
 
 ### 3.14 Onboarding bracket mapping
 
-The three activity brackets (§3.7) control **both** starting session duration **and** walk/run ratio:
+The three activity brackets (§3.7) set the user's **starting calibration** (§3.20), controlling **both** starting session duration **and** walk/run ratio:
 
 | Bracket | Session duration | Walk/run ratio |
 |---|---|---|
@@ -200,7 +201,7 @@ The three activity brackets (§3.7) control **both** starting session duration *
 | Run occasionally | medium | balanced |
 | Getting back into it | longer | more running |
 
-Exact numbers require sports science input — the *shape* is locked (both dimensions scale together). This is a starting point, not permanent — manual level adjust (§3.7) corrects immediately if it feels wrong.
+Exact numbers require sports science input — the *shape* is locked (both dimensions scale together). This is a starting point, not permanent — manual calibration adjust (§3.7) corrects immediately if it feels wrong.
 
 ### 3.15 Solo app (v1)
 
@@ -214,6 +215,7 @@ Exact numbers require sports science input — the *shape* is locked (both dimen
 - **No ads, ever.** Ads violate the product's tone and the "app disappears" philosophy.
 - **Premium tier** (pricing/contents TBD) unlocks things that *enhance* but don't gate the experience.
 - Key constraint: **nothing that makes the free user feel punished or incomplete.** The free experience is the real product. Premium is "I love this and want more."
+- **v1 ships free-only — no paywall, no patron tier (resolved 2026-06-05).** The natural premium content (entertainment audio, structured/distance programs, cosmetics) is parked to v2 (§4). Designing a v1 paywall would force either crippling the free experience (violates the constraint above) or selling things that don't exist yet. **Premium is therefore a v2 concern**, designed when the additive content it gates actually exists and can be sold without making free feel incomplete. (Functional gating via premium is permitted in principle — it's the business model — but is distinct from level-up unlocks, which may *never* gate function, §3.20.2.)
 
 ### 3.17 Platforms — cross-platform
 
@@ -245,6 +247,72 @@ The app must **never** send a notification whose purpose is loss aversion.
 
 **Explicitly not decided at design level:** state management library, local data storage library, push notification service, and other implementation libraries. These are developer choices that don't affect product design.
 
+### 3.20 Progression model — two decoupled tracks
+
+The full level-progression design. The word "level" was previously doing two incompatible jobs; the model below splits them and resolves how each one moves. (Finer numerical tuning — exact step sizes, XP amounts — is deferred and overlaps with the sports-science work in Open Question #4.)
+
+#### 3.20.1 The core split (decoupling)
+
+"Level" is split into **two separate, independent concepts:**
+
+- **Calibration (ability).** Sets how hard the prescribed session is — duration + walk/run ratio. Driven by *readiness only*: onboarding bracket (§3.14), manual adjust (§3.7), and the soft system nudge (§3.7). **Never driven by XP.**
+- **XP / Level.** The gamification reward number. Climbs from *showing up* (§3.6). Purely motivational. **Never changes the prescription.**
+
+**Rationale:** XP is earned mostly through *frequency of showing up*, not fitness. If XP drove difficulty, a consistent-but-still-struggling beginner would be auto-escalated into harder sessions they aren't ready for — exactly the injury / "performing" failure mode §3.6 exists to prevent. Decoupling keeps the difficulty curve honest (it tracks the body) and frees the XP/level number to be pure celebration.
+
+#### 3.20.2 What a level-up gives the user
+
+- **v1: status marker only.** A level is a number plus a satisfying level-up moment (animation / "Level 7!"). **No unlocks of any kind.** The level-up rides on top of the calibration curve, which does the real progression work.
+- **v2: cosmetic unlocks.** Map themes/colors, profile badges or titles, celebration variants. Deferred, but the locked direction.
+- **HARD RULE (permanent): leveling up may change how the app *looks* or what it *calls* you; it may never change what the app *lets you do*.** This is Pillar 3 (anti-elitism) expressed mechanically for the XP system, the same way §3.3 expresses it for the coach.
+- **Functional unlocks: rejected.** Gating features/modes behind levels punishes the plain-running-tool use case and muddies the paywall. If something is worth gating, gate it behind *premium* (§3.16), a deliberate business decision — never behind grinding XP.
+
+#### 3.20.3 How calibration advances
+
+- **Model: conservative auto-advance with an always-present brake.** The app drives the difficulty curve upward on its own, but gently and slowly, and every step is paired with a friction-free "too hard? ease off" control (plus the "too easy? jump ahead" nudge). Errs slow — when unsure, under-prescribe, because a too-easy session is a minor annoyance while a too-hard one risks injury and quitting (fatal to Pillar 1).
+- **Announced, not silent.** Each step-up is named in the gentle-coach tone ("nice progress — we're stepping you up to 14 minutes this week"), with the dial-back control right there. A silent increase could read as the app getting demanding.
+- **Signal: completion-driven.** Showing up and finishing weeks *is* the readiness signal. No effort/performance measurement (we've banned pace/distance/effort as achievement, §3.6), and **no forced post-run feeling prompt** (protects the tight post-run screen, §3.10).
+- **Override: pull-based only.** §3.7's "too easy / too hard" control is the sole solicited-feeling input — the user reaches for it when they have a signal; the app never interrogates them.
+- **Cadence.** Completing a week makes you eligible for *at most one* small step the following week (never mid-week, consistent with §3.13). Off/partial weeks simply **hold steady** — **never auto-demote**, because dropping someone's difficulty for missing a week would read as punishment (violates §3.8's no-failure framing).
+- This resolves the old §3.4/§3.7 contradiction: **auto-advance is the default; manual adjust + soft nudge are the override layer.**
+
+#### 3.20.4 Calibration is invisible
+
+- **No ability number anywhere.** An explicit fitness score invites self-ranking ("you are *only* a 2") — the Strava vibe sneaking in, a direct threat to Pillar 3.
+- Calibration is expressed **only** through (1) the current prescription and (2) the announced step-ups. It is *felt and narrated*, never *scored*.
+- **XP/level is the one and only number in the UI** (§3.11). Because XP tracks showing-up rather than fitness, it is safe to display: the thing that climbs visibly is loyalty; the thing that climbs invisibly is ability.
+- **Ability retrospective = prescription-history narrative** on the stats screen ("you started at 10 minutes mostly walking, now you're at 25 mostly running") — a story, not a grade.
+
+#### 3.20.5 XP / level curve
+
+- **Shape: front-loaded, then linear.** The first level or two are very cheap — you level up within your first session or two, landing the payoff *before* the habit exists (the riskiest moment for a nervous newcomer). After that, thresholds settle into a **constant linear cadence forever**.
+- **No hard cap.** The number climbs forever. It doesn't need to carry "ultimate achievement" weight — **lifetime weeks completed (§3.8) is the real long-term anchor**; the level is the steady heartbeat, lifetime weeks is the legacy.
+- **Steady-state cadence: ~one level per completed week.** Keeps the two systems legible ("I showed up this week → I leveled up"). Off-plan free runs trickle small XP (§3.6), so an active user may occasionally level slightly faster, but the spine is one-level-per-week.
+- **Accelerating / RPG curves rejected:** with steady weekly income they make level-ups rarer over time, giving the *most loyal* users the *least* frequent reward — the grind treadmill, predatory-adjacent.
+
+### 3.21 Positive notification strategy
+
+The constructive counterpart to the §3.18 hard rule (which forbids loss-aversion / predatory notifications). §3.18 is the fence; this is the blueprint. (Partially resolved — taxonomy and opt-in locked; scheduling, frequency caps, and exact wording still open — see Open Question #2.)
+
+**Governing test:** every notification must be *sharing the user's own win, or inviting them to a win they choose* — never *tugging on a fear*.
+
+#### 3.21.1 Taxonomy — what notifications may do (v1)
+
+Three categories ship in v1:
+
+1. **Reminders** — *invitations* toward a session ("a 10-minute session today would feel great"). The most direct Pillar-1 lever. Must always read as an opportunity, never "you haven't run in a while."
+2. **Celebrations** — post-hoc positive reinforcement fired *after* a good thing happened (week complete, level-up, lifetime-weeks milestone). Cheapest and safest category.
+3. **Re-engagement / "we miss you"** — for users who've gone quiet (chained to §3.8's graceful framing). The **most dangerous** category — the one that wants to slide into guilt. Allowed only as *warmth* ("your runs are here whenever you are"), never as a tug. Smallest, most tightly-worded, hardest-capped.
+
+**Excluded from notifications in v1:** **Guidance / tips** (Pillar 2). Valuable but pushed-as-notifications risks clutter and wellness-app drift for low Pillar-1 return. Kept **in-app only**; parked alongside the daily-micro-engagement idea (§4).
+
+#### 3.21.2 Permission / opt-in
+
+- **Ask during onboarding, on screen 4 (the first-session card, §3.12)** — at the moment of commitment, after the user has invested three screens and is about to tap Start. Not the welcome screen (coldest point, highest decline risk).
+  - *Note:* this overrides the general "ask after first value" best practice in favor of handling the toggle up front. The decision was made with eyes open to the lower-grant-rate / permanent-decline tradeoff; the pre-prompt below is the mitigation that makes early asking survivable.
+- **In-app pre-prompt is mandatory.** Before the OS permission prompt fires, show our own friendly screen ("Want gentle reminders + a little celebration when you finish? You're always in control"). A hesitant user taps "not now" on *our* screen (re-askable) instead of burning the **irreversible** OS prompt. Treated as non-negotiable regardless of timing.
+- **Single friendly ask** at opt-in (no category-picker at that moment — choice-overload at the wrong time). **Per-category toggles live in settings** for later tuning.
+
 ---
 
 ## 4. Parked Ideas (v2+ / not in v1)
@@ -256,32 +324,39 @@ The app must **never** send a notification whose purpose is loss aversion.
 - **Entertainment audio** — app-provided music/stories/scenarios layered on the timer (à la Zombies, Run!). Massive content lift.
 - **Community / group features** — micro leaderboards, guilds, running clubs, group challenges. Not rejected — the user sees potential here — but needs very careful design to avoid elitism. Leaderboards based on consistency (weeks completed) rather than pace/distance could work. Needs its own deep design pass.
 - **Optional sharing** — export run summary or milestones to external platforms (Instagram, WhatsApp). Low-cost, no social infrastructure. Near-term addition if users request it.
-- **Level progression mechanics** — what leveling up actually *changes* beyond a number going up. Tension: gating session duration/ratios behind levels excludes users who want the app as a normal running tool (via free run). But levels with no mechanical effect feel hollow. Needs deeper thought — deliberately parked, not rushed.
+- ~~**Level progression mechanics**~~ — ✅ resolved, see §3.20. (The "gating vs. hollow" tension was dissolved by decoupling ability from XP/level: difficulty advances on its own track, the level number is pure celebration.)
 
 ---
 
 ## 5. Open Questions
 
-### Status (2026-06-01)
+### Status (2026-06-05)
 
-The working core of v1 design is locked across §3.1–§3.19. The four topics below are still **v1 work** — deferred to dedicated future sessions, distinct from the §4 v2+ park list.
+The working core of v1 design is locked across §3.1–§3.21. **The team is moving to prototyping.** None of the items below block that. Design status:
 
-When resuming, pick one of the four to tackle. Recommended order: **#1 first** (level progression is the load-bearing gamification hole; paywall contents partly depends on what features exist to gate).
+- **#1 Level progression — RESOLVED** (§3.20).
+- **#2 Notifications — partially resolved** (§3.21; taxonomy + opt-in locked). Open but non-blocking: reminder scheduling/timing, frequency caps, exact wording — settle during prototyping.
+- **#3 Paywall — RESOLVED for v1** (§3.16): free-only, premium deferred to v2.
+- **#4 Bracket numbers — not a design question, not a blocker.** Owner supplies the numbers directly when ready (see below).
 
-### Deferred v1 topics
+### v1 topic status
 
-1. **Level progression mechanics.** What leveling up actually *changes*. Right now levels increment but we haven't decided what changes per level — gating session duration/ratios excludes users who want the app as a normal running tool, but levels with no mechanical effect feel hollow. Needs a deep design pass. Also flagged in §4 as the parked item awaiting design work.
+1. **Level progression mechanics.** ✅ **RESOLVED 2026-06-05 — see §3.20** (full model: decoupling, what a level-up gives, calibration advancement, invisibility, XP curve). Only *numerical tuning* remains (exact step sizes, XP amounts), which folds into Open Question #4 and is fine to settle during prototyping rather than by design grilling.
 
-2. **Positive notification strategy.** The encouraging side of notifications — the §3.18 hard rule (no predatory notifications) is locked, but the constructive model is unresolved. An earlier session reached tentative answers (opt-in after first run, scheduled reminders + celebrations only, day-picker at opt-in time) but the user wanted to re-think it from scratch. All those tentative answers are unlocked.
+2. **Positive notification strategy.** *(Partially resolved 2026-06-05 — see §3.21.)*
+   - **Resolved:** taxonomy (reminders + celebrations + re-engagement in v1; tips excluded), and permission/opt-in (onboarding screen 4, mandatory in-app pre-prompt, single ask, per-category settings).
+   - **Still open:** reminder **scheduling/timing** (leaning: user sets time-of-day default in settings, app picks *days* from week progress, **no day-picker** — but not locked), **frequency caps** per category, and **exact wording** of each category.
 
-3. **Paywall contents.** Freemium model is locked (§3.16). What specifically goes behind premium is undefined. Constraint: nothing that makes the free user feel punished or incomplete.
+3. **Paywall contents.** ✅ **RESOLVED for v1 2026-06-05 — see §3.16:** v1 ships **free-only** (no paywall, no patron tier). Substantive paywall design is deferred to **v2**, when the additive content it would gate (audio, programs, cosmetics) exists. Not a v1 blocker.
 
-4. **Bracket numerical values** (§3.14). The *shape* (longer/shorter session, more/less running per bracket) is locked. The actual minutes and walk/run ratios need sports science input, not pure design grilling — different kind of work.
+4. **Bracket numerical values** (§3.14). **Not a design question and not a blocker for prototyping** — *not parked.* The *shape* is locked (§3.14); the actual minutes and walk/run ratios are a calibration detail the project owner will supply directly when ready (likely by adapting an established walk/run program and tuning from real completion/feedback data — the self-correcting machinery in §3.20.3 absorbs imperfect starting numbers). No grilling needed.
 
 ---
 
 ## 6. Glossary
 
+- **Calibration (ability)** — the readiness-driven dial that sets prescription difficulty (duration + walk/run ratio). Decoupled from XP; set by bracket, manual adjust, or soft nudge. See §3.20.
+- **XP / Level** — the showing-up-driven gamification reward number. Never changes the prescription. See §3.20.
 - **Predatory notification** — a push notification whose purpose is loss aversion. Forbidden.
 - **Lifetime weeks completed** — monotonically increasing counter. Important differentiator, lives on stats screen.
 - **Secondary streak** — *current consecutive weeks*. Smaller, soft-breaks gracefully.
