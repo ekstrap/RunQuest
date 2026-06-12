@@ -1,4 +1,4 @@
-import type { ProgressionState } from '@/src/domain/types';
+import type { OnboardingState, ProgressionState } from '@/src/domain/types';
 
 /**
  * Repository — the storage boundary. A small interface that the product-rule
@@ -18,4 +18,10 @@ import type { ProgressionState } from '@/src/domain/types';
 export interface Repository {
   /** Read the user's current progression state (XP total + level). */
   getProgressionState(): Promise<ProgressionState>;
+
+  /** Read persisted onboarding selections, or null if onboarding isn't complete. */
+  getOnboardingState(): Promise<OnboardingState | null>;
+
+  /** Persist the user's onboarding selections (bracket + weekly commitment). */
+  saveOnboarding(state: OnboardingState): Promise<void>;
 }

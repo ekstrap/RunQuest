@@ -1,24 +1,27 @@
+import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
 
-import type { ProgressionState } from '@/src/domain/types';
+import type { OnboardingState } from '@/src/domain/types';
 import { useRepository } from '@/src/providers/repository-provider';
 
 /**
- * Placeholder home screen. The real home screen (next session, week progress,
- * level + XP bar) is built in later issues; for the scaffold it reads the user's
- * progression state through the repository interface and shows the level — the
- * end-to-end tracer bullet proving the storage boundary is wired up.
+ * Entry gate. The first thing the app renders: it reads onboarding state through
+ * the repository and routes accordingly — a not-yet-onboarded newcomer into the
+ * welcome flow, a returning user straight to home. This is what makes onboarding
+ * the genuine first-run experience. Renders nothing while the async read is in
+ * flight (a frame, in practice).
  */
-export default function HomeScreen() {
+export default function IndexGate() {
   const repository = useRepository();
-  const [progression, setProgression] = useState<ProgressionState | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let active = true;
-    repository.getProgressionState().then((state) => {
+    repository.getOnboardingState().then((state) => {
       if (active) {
-        setProgression(state);
+        setOnboarding(state);
+        setLoaded(true);
       }
     });
     return () => {
@@ -26,26 +29,9 @@ export default function HomeScreen() {
     };
   }, [repository]);
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>RunQuest</Text>
-      {progression && <Text style={styles.level}>Level {progression.level}</Text>}
-    </View>
-  );
-}
+  if (!loaded) {
+    return null;
+  }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '600',
-  },
-  level: {
-    fontSize: 18,
-    marginTop: 8,
-  },
-});
+  return <Redirect href={onboarding ? '/home' : '/welcome'} />;
+}

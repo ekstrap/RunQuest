@@ -11,7 +11,9 @@ export default function RootLayout() {
   return (
     <RepositoryProvider>
       <Stack>
-        <Stack.Screen name="index" options={{ title: 'RunQuest' }} />
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+        <Stack.Screen name="home" options={{ title: 'RunQuest' }} />
       </Stack>
     </RepositoryProvider>
   );

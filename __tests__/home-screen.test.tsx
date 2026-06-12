@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react-native';
 
-import HomeScreen from '@/app/index';
+import HomeScreen from '@/app/home';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
