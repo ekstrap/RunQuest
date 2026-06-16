@@ -31,6 +31,21 @@ A few terms used below, explained once:
 
 **Gate type:** ① external credential (Google Maps key) + ③ physical-device test (GPS).
 
+> **Decision (2026-06-16): went with Option B — defer the real map/GPS.**
+> Issue #4 shipped the plain in-run session *behind injected boundaries*: the
+> run-type picker (interval default), a calm in-run screen (placeholder map +
+> live-location slot + elapsed timer, no XP/level UI), and session completion
+> through the repository — all fully tested. GPS lives behind a `LocationSource`
+> boundary whose default is "no GPS", so completion works with no location at
+> all (distance recorded as null). The real `react-native-maps` + `expo-location`
+> integration (the actual Google Map and moving blue dot) was **deliberately
+> deferred to a fast-follow**, mirroring how Supabase is deferred behind the
+> `Repository` boundary. Rationale: real maps need a dev build + API key and
+> can't render in Expo Go, and a map can't be verified by automated tests anyway.
+>
+> **The steps below (A–C) are the runbook for that deferred map/GPS fast-follow**
+> — they are *not* needed for the merged #4 work, which is done and verified.
+
 The agent writes the map screen, timer, and session record. You need to (a)
 give it a Google Maps key so the map can render, and (b) confirm on a real phone
 that live location and distance actually work — GPS does not work in a simulator.

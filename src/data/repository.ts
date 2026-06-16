@@ -1,4 +1,4 @@
-import type { OnboardingState, ProgressionState } from '@/src/domain/types';
+import type { OnboardingState, ProgressionState, SessionRecord } from '@/src/domain/types';
 
 /**
  * Repository — the storage boundary. A small interface that the product-rule
@@ -24,4 +24,10 @@ export interface Repository {
 
   /** Persist the user's onboarding selections (bracket + weekly commitment). */
   saveOnboarding(state: OnboardingState): Promise<void>;
+
+  /** Persist a completed session record (time, mode, post-run distance). */
+  saveSession(record: SessionRecord): Promise<void>;
+
+  /** Read all completed session records, oldest first. */
+  getSessions(): Promise<SessionRecord[]>;
 }

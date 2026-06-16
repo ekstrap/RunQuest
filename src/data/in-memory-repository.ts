@@ -1,4 +1,4 @@
-import type { OnboardingState, ProgressionState } from '@/src/domain/types';
+import type { OnboardingState, ProgressionState, SessionRecord } from '@/src/domain/types';
 import type { Repository } from './repository';
 
 /** A brand-new user: level 1, no XP yet. */
@@ -13,6 +13,8 @@ export class InMemoryRepository implements Repository {
   private progression: ProgressionState;
   /** null until onboarding is completed (DESIGN.md §3.20). */
   private onboarding: OnboardingState | null = null;
+  /** Completed sessions, oldest first. */
+  private sessions: SessionRecord[] = [];
 
   constructor(initial: ProgressionState = INITIAL_PROGRESSION) {
     this.progression = initial;
@@ -28,5 +30,14 @@ export class InMemoryRepository implements Repository {
 
   async saveOnboarding(state: OnboardingState): Promise<void> {
     this.onboarding = state;
+  }
+
+  async saveSession(record: SessionRecord): Promise<void> {
+    this.sessions.push(record);
+  }
+
+  async getSessions(): Promise<SessionRecord[]> {
+    // Return a copy so callers can't mutate our internal state.
+    return [...this.sessions];
   }
 }

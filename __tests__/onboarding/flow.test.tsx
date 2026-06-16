@@ -17,6 +17,11 @@ describe('onboarding flow', () => {
         '(onboarding)/schedule': require('@/app/(onboarding)/schedule').default,
         '(onboarding)/first-session': require('@/app/(onboarding)/first-session').default,
         home: require('@/app/home').default,
+        // Registered so the real root _layout's <Stack.Screen name="run" /> has a
+        // matching route here; the onboarding flow itself never navigates into it.
+        'run/_layout': require('@/app/run/_layout').default,
+        'run/setup': require('@/app/run/setup').default,
+        'run/active': require('@/app/run/active').default,
       },
       { initialUrl: '/welcome' },
     );
