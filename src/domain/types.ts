@@ -26,6 +26,33 @@ export type Bracket = 'never-run' | 'run-occasionally' | 'getting-back';
 export type WeeklyCommitment = 2 | 3;
 
 /**
+ * Run type — the movement pattern chosen before a session starts (DESIGN.md
+ * §3.9). Walk/run interval is the beginner-friendly default; "just run" / "just
+ * walk" turn the app into a plain timer + map. Only interval mode will emit
+ * audio cues (the cue state machine lands in a later issue); the three modes
+ * otherwise share the same calm in-run screen.
+ */
+export type RunType = 'interval' | 'just-run' | 'just-walk';
+
+/**
+ * A completed session record. Time is the completion contract (§3.5, §3.9): a
+ * session counts because the user spent the time, not because of any GPS reading.
+ * GPS feeds the live map and the post-run distance celebration only and is never
+ * a completion gate — so distance is nullable (absent when GPS is unavailable).
+ * Distance is never an input to XP or calibration.
+ */
+export interface SessionRecord {
+  /** Which movement pattern the session used. */
+  mode: RunType;
+  /** When the session started (epoch milliseconds). */
+  startedAt: number;
+  /** Completed elapsed time in seconds. */
+  durationSeconds: number;
+  /** Post-run GPS distance in meters, or null when GPS was unavailable. */
+  distanceMeters: number | null;
+}
+
+/**
  * Prescription — what a single session asks of the user: a duration and a
  * walk/run interval. The walk/run *ratio* (DESIGN.md §3.14: more-walking →
  * balanced → more-running) emerges from the walk/run seconds. These are the
