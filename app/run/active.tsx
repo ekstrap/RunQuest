@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { buildSessionRecord } from '@/src/domain/session';
 import { formatElapsed } from '@/src/domain/elapsed';
@@ -8,6 +9,8 @@ import type { RunType } from '@/src/domain/types';
 import { useRepository } from '@/src/providers/repository-provider';
 import { useLocationSource } from '@/src/providers/location-provider';
 import type { LocationReading } from '@/src/run/location-source';
+// Null reading used as the initial ref value before the first GPS fix.
+const NULL_READING: LocationReading = { coordinate: null, distanceMeters: null };
 
 const RUN_TYPES: RunType[] = ['interval', 'just-run', 'just-walk'];
 
@@ -38,10 +41,9 @@ export default function RunActiveScreen() {
   const startedAtRef = useRef<number>(Date.now());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
-  // Latest location reading — kept in a ref so "End run" reads the final value,
-  // and mirrored into state so the UI re-renders as it updates.
-  const readingRef = useRef<LocationReading>({ coordinate: null, distanceMeters: null });
-  const [reading, setReading] = useState<LocationReading>(readingRef.current);
+  // Latest location reading kept in a ref so "End run" reads the final distance.
+  // No state mirror needed — MapView renders its own blue dot.
+  const readingRef = useRef<LocationReading>(NULL_READING);
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -51,11 +53,9 @@ export default function RunActiveScreen() {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = locationSource.subscribe((next) => {
+    return locationSource.subscribe((next) => {
       readingRef.current = next;
-      setReading(next);
     });
-    return unsubscribe;
   }, [locationSource]);
 
   async function handleEnd() {
@@ -69,18 +69,15 @@ export default function RunActiveScreen() {
     router.replace('/home');
   }
 
-  const { coordinate } = reading;
-
   return (
     <View style={styles.container}>
-      <View style={styles.map} testID="run-map">
-        <Text style={styles.mapLabel}>Map</Text>
-        <Text style={styles.location}>
-          {coordinate
-            ? `${coordinate.latitude.toFixed(5)}, ${coordinate.longitude.toFixed(5)}`
-            : 'Locating…'}
-        </Text>
-      </View>
+      <MapView
+        style={styles.map}
+        testID="run-map"
+        provider={PROVIDER_GOOGLE}
+        showsUserLocation
+        followsUserLocation
+      />
 
       <Text style={styles.elapsed} testID="elapsed">
         {formatElapsed(elapsedSeconds)}
@@ -99,19 +96,6 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
-    backgroundColor: '#e5e7eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapLabel: {
-    fontSize: 16,
-    color: '#9ca3af',
-    fontWeight: '600',
-  },
-  location: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 8,
   },
   elapsed: {
     fontSize: 56,

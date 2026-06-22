@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 
 import { LocationProvider } from '@/src/providers/location-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
+import { expoLocationSource } from '@/src/run/expo-location-source';
 
 /**
  * Root navigation shell. A single Stack for now; stats routes land in later
@@ -12,7 +13,7 @@ import { RepositoryProvider } from '@/src/providers/repository-provider';
 export default function RootLayout() {
   return (
     <RepositoryProvider>
-      <LocationProvider>
+      <LocationProvider source={expoLocationSource}>
         <Stack>
           <Stack.Screen name="index" options={{ headerShown: false }} />
           <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />

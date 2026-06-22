@@ -27,9 +27,23 @@ A few terms used below, explained once:
 
 ---
 
-## Issue #4 — Run a plain session (map + timer + completion)
+## Issue #4 — Run a plain session (map + timer + completion) — ✅ COMPLETED (2026-06-22)
 
 **Gate type:** ① external credential (Google Maps key) + ③ physical-device test (GPS).
+
+> **Done (2026-06-22): map/GPS fast-follow shipped.** Google Maps key obtained
+> and stored as an EAS secret env var (`GOOGLE_MAPS_API_KEY`, `development`
+> environment). `expo-location` + `react-native-maps` wired in behind the
+> existing `LocationSource` boundary (`src/run/expo-location-source.ts`); the
+> in-run screen now renders a real Google `MapView` with the live blue dot. EAS
+> dev-build config added (`eas.json`, `app.config.js`, bundle ID
+> `com.ekstrap.runquest`). A `development` dev build was installed on a real
+> phone and **the map renders live location** (Part C step 10, map). Two Part C
+> checks remain **unverified on-device**: distance after walking ~100m (step 10)
+> and run completion with location permission **off** (step 11, a hard
+> requirement — GPS must never block finishing a run). The code handles both
+> (distance saves as `null` with no fix), but neither has been device-tested.
+> The original deferral note (Option B) is preserved below for history.
 
 > **Decision (2026-06-16): went with Option B — defer the real map/GPS.**
 > Issue #4 shipped the plain in-run session *behind injected boundaries*: the
