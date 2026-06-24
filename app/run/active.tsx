@@ -3,11 +3,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
+import { prescriptionForBracket } from '@/src/domain/calibration';
 import { buildSessionRecord } from '@/src/domain/session';
+import { buildCueSchedule, type CueEvent } from '@/src/domain/interval-cues';
 import { formatElapsed } from '@/src/domain/elapsed';
 import type { RunType } from '@/src/domain/types';
 import { useRepository } from '@/src/providers/repository-provider';
 import { useLocationSource } from '@/src/providers/location-provider';
+import { useCuePlayer } from '@/src/providers/cue-player-provider';
 import type { LocationReading } from '@/src/run/location-source';
 // Null reading used as the initial ref value before the first GPS fix.
 const NULL_READING: LocationReading = { coordinate: null, distanceMeters: null };
@@ -27,13 +30,16 @@ function parseRunType(raw: string | undefined): RunType {
  * the repository. GPS only feeds the map/distance and never gates completion, so
  * a run with no fix still completes (distance recorded as null).
  *
- * (Interval audio cues are a later issue; this screen is mode-agnostic for now
- * and simply records which mode was chosen.)
+ * In **interval** mode it also drives walk/run audio cues: it loads the user's
+ * prescription, builds a deterministic cue schedule, and plays each transition
+ * through the injected CuePlayer as elapsed time crosses it. The cues are the
+ * only difference from "just run" / "just walk" — the calm screen is identical.
  */
 export default function RunActiveScreen() {
   const router = useRouter();
   const repository = useRepository();
   const locationSource = useLocationSource();
+  const cuePlayer = useCuePlayer();
   const params = useLocalSearchParams<{ mode: string }>();
   const mode = parseRunType(params.mode);
 
@@ -44,6 +50,11 @@ export default function RunActiveScreen() {
   // Latest location reading kept in a ref so "End run" reads the final distance.
   // No state mirror needed — MapView renders its own blue dot.
   const readingRef = useRef<LocationReading>(NULL_READING);
+
+  // Walk/run cue schedule for interval mode (empty for the plain modes).
+  const [cues, setCues] = useState<CueEvent[]>([]);
+  // Index of the next un-played cue — advanced as elapsed time crosses each one.
+  const nextCueRef = useRef(0);
 
   useEffect(() => {
     const tick = setInterval(() => {
@@ -57,6 +68,34 @@ export default function RunActiveScreen() {
       readingRef.current = next;
     });
   }, [locationSource]);
+
+  // Interval mode only: load the prescription and build the cue schedule once.
+  // Falls back to the gentlest start if onboarding isn't recorded yet.
+  useEffect(() => {
+    if (mode !== 'interval') {
+      return;
+    }
+    let active = true;
+    repository.getOnboardingState().then((onboarding) => {
+      if (!active) {
+        return;
+      }
+      const prescription = prescriptionForBracket(onboarding?.bracket ?? 'never-run');
+      setCues(buildCueSchedule(prescription));
+    });
+    return () => {
+      active = false;
+    };
+  }, [mode, repository]);
+
+  // Play every cue whose start time has elapsed but hasn't fired yet. Runs when
+  // the schedule loads (firing the second-0 cue) and on each elapsed-time tick.
+  useEffect(() => {
+    while (nextCueRef.current < cues.length && cues[nextCueRef.current].atSecond <= elapsedSeconds) {
+      void cuePlayer.play(cues[nextCueRef.current]);
+      nextCueRef.current += 1;
+    }
+  }, [cues, elapsedSeconds, cuePlayer]);
 
   async function handleEnd() {
     const record = buildSessionRecord({
