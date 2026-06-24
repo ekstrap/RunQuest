@@ -14,9 +14,8 @@ const RUN_TYPES: { value: RunType; label: string; hint: string }[] = [
 /**
  * Run-type picker — shown before a session starts (DESIGN.md §3.9). Walk/run
  * interval is the default selection; the user can switch to a plain "just run"
- * or "just walk". Tapping Start carries the chosen mode to the in-run screen.
- * (Interval audio cues land in a later issue; all modes share the same calm
- * in-run screen for now.)
+ * or "just walk". Tapping Start carries the chosen mode to the in-run screen,
+ * where interval mode plays walk/run audio cues and the plain modes do not.
  */
 export default function RunSetupScreen() {
   const router = useRouter();

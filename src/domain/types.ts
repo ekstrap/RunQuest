@@ -28,9 +28,8 @@ export type WeeklyCommitment = 2 | 3;
 /**
  * Run type — the movement pattern chosen before a session starts (DESIGN.md
  * §3.9). Walk/run interval is the beginner-friendly default; "just run" / "just
- * walk" turn the app into a plain timer + map. Only interval mode will emit
- * audio cues (the cue state machine lands in a later issue); the three modes
- * otherwise share the same calm in-run screen.
+ * walk" turn the app into a plain timer + map. Only interval mode emits walk/run
+ * audio cues; the three modes otherwise share the same calm in-run screen.
  */
 export type RunType = 'interval' | 'just-run' | 'just-walk';
 
