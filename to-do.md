@@ -38,12 +38,20 @@ A few terms used below, explained once:
 > in-run screen now renders a real Google `MapView` with the live blue dot. EAS
 > dev-build config added (`eas.json`, `app.config.js`, bundle ID
 > `com.ekstrap.runquest`). A `development` dev build was installed on a real
-> phone and **the map renders live location** (Part C step 10, map). Two Part C
-> checks remain **unverified on-device**: distance after walking ~100m (step 10)
-> and run completion with location permission **off** (step 11, a hard
-> requirement — GPS must never block finishing a run). The code handles both
-> (distance saves as `null` with no fix), but neither has been device-tested.
-> The original deferral note (Option B) is preserved below for history.
+> phone and **the map renders live location** (Part C step 10, map).
+>
+> **Update (2026-06-24): step 11 verified on-device.** Run completion with
+> location permission **off** was device-tested: with location denied before
+> starting, the run still ends and navigates home, distance saved as `null`.
+> The hard requirement (GPS must never block finishing a run) holds. A transient
+> error banner appeared at the bottom of the screen during the test but did not
+> reproduce — almost certainly a dev-only LogBox overlay (not shown in
+> production builds); noted as cosmetic, not a blocker.
+>
+> One Part C check remains: **distance display after a run** (step 10, distance).
+> This is *not* a #4 bug — distance is captured and saved correctly, but the
+> screen that *shows* it (post-run summary) is deferred to **Issue #6**. It will
+> be verified there once that screen exists.
 
 > **Decision (2026-06-16): went with Option B — defer the real map/GPS.**
 > Issue #4 shipped the plain in-run session *behind injected boundaries*: the
@@ -105,9 +113,29 @@ that live location and distance actually work — GPS does not work in a simulat
 
 ---
 
-## Issue #5 — Walk/run interval audio cues
+## Issue #5 — Walk/run interval audio cues — ✅ COMPLETED (2026-06-24)
 
 **Gate type:** ③ physical-device test (audio behaviour). No credentials needed.
+
+> **Done (2026-06-24): interval cues shipped and device-verified.** Walk/run
+> cues built behind a `CuePlayer` boundary (`src/run/cue-player.ts`) with a pure,
+> deterministic schedule (`src/domain/interval-cues.ts`); production player uses
+> `expo-speech` (`src/run/expo-cue-player.ts`), loaded lazily so a missing native
+> module degrades to silence instead of crashing. On a real Android dev build the
+> device QA passed: cues fire at each transition, **duck over Spotify**, carry no
+> commentary, and plain "just run"/"just walk" modes stay silent. All five
+> acceptance criteria met.
+>
+> **Known limitation — screen-locked / backgrounded cues do not fire (FOLLOW-UP
+> NEEDED).** When the phone is locked or the app is backgrounded the OS suspends
+> the JS timer, so no cue plays; on resume the timer catches up and any overdue
+> cue fires late (observed: the 0:45 "start running" cue spoke at 0:56). This is
+> **out of scope for #5** (its acceptance criteria don't require background
+> operation) and needs its own issue: make interval cues continue with the screen
+> locked / app backgrounded — requires native background execution (iOS
+> background-audio session, Android foreground service) — and decide what to do
+> with stale catch-up cues on resume (likely skip a cue that's now overdue rather
+> than speak it late). Not yet filed as a GitHub issue.
 
 The agent writes the interval state machine and the audio cues, and tests the
 *timing* automatically with a fake clock (no real waiting). What a machine can't
