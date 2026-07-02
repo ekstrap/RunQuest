@@ -19,6 +19,9 @@ export interface Repository {
   /** Read the user's current progression state (XP total + level). */
   getProgressionState(): Promise<ProgressionState>;
 
+  /** Persist the user's progression state after awarding session XP. */
+  saveProgression(state: ProgressionState): Promise<void>;
+
   /** Read persisted onboarding selections, or null if onboarding isn't complete. */
   getOnboardingState(): Promise<OnboardingState | null>;
 

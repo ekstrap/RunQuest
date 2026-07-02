@@ -24,6 +24,10 @@ export class InMemoryRepository implements Repository {
     return this.progression;
   }
 
+  async saveProgression(state: ProgressionState): Promise<void> {
+    this.progression = state;
+  }
+
   async getOnboardingState(): Promise<OnboardingState | null> {
     return this.onboarding;
   }

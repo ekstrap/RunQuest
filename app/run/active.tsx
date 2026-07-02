@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { prescriptionForBracket } from '@/src/domain/calibration';
+import { awardSessionXp } from '@/src/domain/progression';
 import { buildSessionRecord } from '@/src/domain/session';
 import { buildCueSchedule, type CueEvent } from '@/src/domain/interval-cues';
 import { formatElapsed } from '@/src/domain/elapsed';
@@ -105,7 +106,27 @@ export default function RunActiveScreen() {
       distanceMeters: readingRef.current.distanceMeters,
     });
     await repository.saveSession(record);
-    router.replace('/home');
+
+    // Award flat base XP for showing up, then hand the payoff to the separate
+    // summary screen. No XP/level UI ever appears on the calm run screen (§3.9).
+    const current = await repository.getProgressionState();
+    const result = awardSessionXp(current);
+    await repository.saveProgression(result.progression);
+
+    router.replace({
+      pathname: '/run/summary',
+      params: {
+        durationSeconds: String(record.durationSeconds),
+        // Omit the distance param entirely when GPS was unavailable — the
+        // summary shows no distance line rather than "0 km" (§3.10).
+        ...(record.distanceMeters != null
+          ? { distanceMeters: String(record.distanceMeters) }
+          : {}),
+        xpAwarded: String(result.xpAwarded),
+        leveledUp: result.leveledUp ? '1' : '0',
+        level: String(result.newLevel),
+      },
+    });
   }
 
   return (

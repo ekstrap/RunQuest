@@ -10,6 +10,14 @@ describe('InMemoryRepository', () => {
     expect(progression).toEqual({ xpTotal: 0, level: 1 });
   });
 
+  it('reflects the saved progression state after saveProgression', async () => {
+    const repository: Repository = new InMemoryRepository();
+
+    await repository.saveProgression({ xpTotal: 100, level: 2 });
+
+    expect(await repository.getProgressionState()).toEqual({ xpTotal: 100, level: 2 });
+  });
+
   it('has no onboarding state until onboarding is saved', async () => {
     const repository: Repository = new InMemoryRepository();
 

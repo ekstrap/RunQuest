@@ -121,7 +121,23 @@ describe('RunActiveScreen', () => {
       durationSeconds: 600,
       distanceMeters: 800,
     });
-    expect(mockReplace).toHaveBeenCalledWith('/home');
+
+    // Navigates to the celebratory summary with the run's payoff params.
+    expect(mockReplace).toHaveBeenCalledWith(
+      expect.objectContaining({
+        pathname: '/run/summary',
+        params: expect.objectContaining({
+          durationSeconds: '600',
+          distanceMeters: '800',
+          xpAwarded: '100',
+          leveledUp: '1',
+          level: '2',
+        }),
+      }),
+    );
+
+    // Progression was persisted: a fresh user's first session → +100 XP, level 2.
+    expect(await repository.getProgressionState()).toEqual({ xpTotal: 100, level: 2 });
   });
 
   it('completes without GPS — the saved record has null distance', async () => {
