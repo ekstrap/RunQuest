@@ -223,6 +223,65 @@ describe('RunActiveScreen', () => {
     });
   });
 
+  describe('calibration auto-advance', () => {
+    it('advances calibration and announces the step-up when the run completes the week', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      await repository.saveSession({
+        mode: 'interval',
+        startedAt: new Date('2026-06-15T09:00:00Z').getTime(),
+        durationSeconds: 600,
+        distanceMeters: null,
+      });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // never-run starts at rung 0 (10 min); a completed week steps to rung 1 (15 min).
+      expect(await repository.getCalibrationState()).toEqual({ step: 1 });
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.calibrationSteppedToMinutes).toBe('15');
+    });
+
+    it('holds calibration steady and announces nothing when the week is incomplete', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 3 });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // No completed week → no advance, nothing persisted, no announcement.
+      expect(await repository.getCalibrationState()).toBeNull();
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.calibrationSteppedToMinutes).toBeUndefined();
+    });
+
+    it('advances from the persisted calibration rung, not the raw bracket', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      await repository.saveCalibration({ step: 2 }); // manually nudged up earlier
+      await repository.saveSession({
+        mode: 'interval',
+        startedAt: new Date('2026-06-15T09:00:00Z').getTime(),
+        durationSeconds: 600,
+        distanceMeters: null,
+      });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // rung 2 → rung 3 (25 min), not bracket-start rung 0 → 1.
+      expect(await repository.getCalibrationState()).toEqual({ step: 3 });
+      expect(mockReplace.mock.calls[0][0].params.calibrationSteppedToMinutes).toBe('25');
+    });
+  });
+
   describe('interval mode audio cues', () => {
     beforeEach(() => {
       mockMode = 'interval';
@@ -257,6 +316,19 @@ describe('RunActiveScreen', () => {
         { atSecond: 60, phase: 'run', durationSeconds: 30 },
         { atSecond: 90, phase: 'walk', durationSeconds: 60 },
       ]);
+    });
+
+    it('drives cues from the persisted calibration rung, not just the bracket', async () => {
+      const repository = new InMemoryRepository();
+      await withNeverRunOnboarding(repository);
+      await repository.saveCalibration({ step: 2 }); // advanced → 20 min, 45s walk / 45s run
+      const { player, cues } = spyCuePlayer();
+
+      renderWithProviders(<RunActiveScreen />, { repository, player });
+      await act(async () => {});
+
+      // The advanced prescription's walk phase is 45s (not the bracket-start 60s).
+      expect(cues).toEqual([{ atSecond: 0, phase: 'walk', durationSeconds: 45 }]);
     });
 
     it('plays no cues for just-run', async () => {

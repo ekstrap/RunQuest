@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
-import { prescriptionForBracket } from '@/src/domain/calibration';
+import {
+  advanceOnWeekComplete,
+  initialCalibration,
+  prescriptionForCalibration,
+} from '@/src/domain/calibration';
 import { applyXp, awardSessionXp } from '@/src/domain/progression';
 import { completesWeek, sessionsInWeek, startOfWeek, weekBonusXp } from '@/src/domain/week';
 import { buildSessionRecord } from '@/src/domain/session';
@@ -78,13 +82,18 @@ export default function RunActiveScreen() {
       return;
     }
     let active = true;
-    repository.getOnboardingState().then((onboarding) => {
-      if (!active) {
-        return;
-      }
-      const prescription = prescriptionForBracket(onboarding?.bracket ?? 'never-run');
-      setCues(buildCueSchedule(prescription));
-    });
+    // Drive the cues from the *persisted calibration* so an advanced difficulty
+    // reflects in the intervals; fall back to the bracket's starting rung when
+    // calibration hasn't been seeded yet (§3.20).
+    Promise.all([repository.getCalibrationState(), repository.getOnboardingState()]).then(
+      ([calibration, onboarding]) => {
+        if (!active) {
+          return;
+        }
+        const state = calibration ?? initialCalibration(onboarding?.bracket ?? 'never-run');
+        setCues(buildCueSchedule(prescriptionForCalibration(state)));
+      },
+    );
     return () => {
       active = false;
     };
@@ -120,8 +129,12 @@ export default function RunActiveScreen() {
       repository.getSessions(),
     ]);
     const commitment = onboarding?.weeklyCommitment ?? 2;
+    const weekComplete = completesWeek(
+      sessionsInWeek(sessions, startOfWeek(Date.now())),
+      commitment,
+    );
     let weekBonusAwarded = 0;
-    if (completesWeek(sessionsInWeek(sessions, startOfWeek(Date.now())), commitment)) {
+    if (weekComplete) {
       weekBonusAwarded = weekBonusXp(commitment);
       const bonusResult = applyXp(result.progression, weekBonusAwarded);
       result = {
@@ -134,6 +147,27 @@ export default function RunActiveScreen() {
     }
     await repository.saveProgression(result.progression);
 
+    // Calibration auto-advance (§3.20.3–4): a completed week gently steps the
+    // prescription up by one rung for subsequent sessions; an off/partial week
+    // holds steady and never demotes. On a step-up, hand the new duration to the
+    // summary for a gentle announcement (display-only). Seed from the persisted
+    // rung, falling back to the bracket's starting rung when unseeded.
+    let calibrationSteppedToMinutes: number | null = null;
+    if (weekComplete) {
+      const savedCalibration = await repository.getCalibrationState();
+      const currentCalibration =
+        savedCalibration ?? initialCalibration(onboarding?.bracket ?? 'never-run');
+      const { state: nextCalibration, steppedUp } = advanceOnWeekComplete(
+        currentCalibration,
+        true,
+      );
+      if (steppedUp) {
+        await repository.saveCalibration(nextCalibration);
+        calibrationSteppedToMinutes =
+          prescriptionForCalibration(nextCalibration).durationMinutes;
+      }
+    }
+
     router.replace({
       pathname: '/run/summary',
       params: {
@@ -145,6 +179,9 @@ export default function RunActiveScreen() {
           : {}),
         xpAwarded: String(result.xpAwarded),
         ...(weekBonusAwarded > 0 ? { weekBonusAwarded: String(weekBonusAwarded) } : {}),
+        ...(calibrationSteppedToMinutes != null
+          ? { calibrationSteppedToMinutes: String(calibrationSteppedToMinutes) }
+          : {}),
         leveledUp: result.leveledUp ? '1' : '0',
         level: String(result.newLevel),
       },

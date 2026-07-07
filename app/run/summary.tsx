@@ -24,6 +24,7 @@ export default function RunSummaryScreen() {
     weekBonusAwarded?: string;
     leveledUp?: string;
     level?: string;
+    calibrationSteppedToMinutes?: string;
   }>();
 
   const durationSeconds = Number(params.durationSeconds ?? 0);
@@ -31,6 +32,12 @@ export default function RunSummaryScreen() {
   const weekBonusAwarded = Number(params.weekBonusAwarded ?? 0);
   const leveledUp = params.leveledUp === '1';
   const level = Number(params.level ?? 0);
+  // Present only when a completed week auto-advanced calibration (§3.20.4).
+  // Display-only — the advance was already persisted in the run screen.
+  const calibrationSteppedToMinutes =
+    params.calibrationSteppedToMinutes != null
+      ? Number(params.calibrationSteppedToMinutes)
+      : null;
 
   return (
     <View style={styles.container}>
@@ -58,6 +65,13 @@ export default function RunSummaryScreen() {
       {leveledUp && (
         <Text style={styles.levelUp} testID="level-up">
           Level up! You&apos;re now Level {level}
+        </Text>
+      )}
+
+      {calibrationSteppedToMinutes != null && (
+        <Text style={styles.calibrationStepUp} testID="calibration-step-up">
+          Nice progress — next time we&apos;ll nudge you up to {calibrationSteppedToMinutes}{' '}
+          minutes.
         </Text>
       )}
 
@@ -110,6 +124,12 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     textAlign: 'center',
     marginTop: 16,
+  },
+  calibrationStepUp: {
+    fontSize: 16,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 20,
   },
   doneButton: {
     marginTop: 48,

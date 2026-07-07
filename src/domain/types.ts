@@ -67,6 +67,19 @@ export interface Prescription {
 }
 
 /**
+ * Calibration state — the readiness/ability track (DESIGN.md §3.20), decoupled
+ * from the XP/level reward track. It is a single invisible `step` index into a
+ * monotonic ladder of prescriptions (walk-heavy/short → run-heavy/longer). The
+ * step is **never rendered as a number** — surfacing an ability score would
+ * invite self-ranking (§3.20.4, anti-elitism); calibration is expressed only
+ * through the current prescription and gentle step-up announcements.
+ */
+export interface CalibrationState {
+  /** Rung on the calibration ladder. Higher = harder session. Never shown. */
+  step: number;
+}
+
+/**
  * Onboarding state — the two decoupled selections captured before the first run
  * (DESIGN.md §3.20): the activity bracket (sets starting calibration) and the
  * weekly commitment (sets the reward/target scale). Persisted via the

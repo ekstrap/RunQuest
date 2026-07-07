@@ -67,6 +67,22 @@ describe('RunSummaryScreen', () => {
     expect(screen.queryByTestId('week-bonus')).toBeNull();
   });
 
+  it('announces a gentle calibration step-up when one happened this week', () => {
+    mockParams.calibrationSteppedToMinutes = '15';
+    render(<RunSummaryScreen />);
+
+    const line = screen.getByTestId('calibration-step-up');
+    expect(line).toHaveTextContent(/15 minutes/);
+    // Encouraging, never a fitness score or step number (§3.20.4).
+    expect(line).not.toHaveTextContent(/step|level|fitness/i);
+  });
+
+  it('shows no step-up line when calibration held steady', () => {
+    render(<RunSummaryScreen />);
+
+    expect(screen.queryByTestId('calibration-step-up')).toBeNull();
+  });
+
   it('shows no week, streak, or lifetime text', () => {
     render(<RunSummaryScreen />);
 

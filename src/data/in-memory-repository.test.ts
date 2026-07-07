@@ -35,6 +35,20 @@ describe('InMemoryRepository', () => {
     });
   });
 
+  it('has no calibration state until one is saved', async () => {
+    const repository: Repository = new InMemoryRepository();
+
+    expect(await repository.getCalibrationState()).toBeNull();
+  });
+
+  it('returns the saved calibration state after saveCalibration', async () => {
+    const repository: Repository = new InMemoryRepository();
+
+    await repository.saveCalibration({ step: 3 });
+
+    expect(await repository.getCalibrationState()).toEqual({ step: 3 });
+  });
+
   it('has no sessions until one is saved', async () => {
     const repository: Repository = new InMemoryRepository();
 

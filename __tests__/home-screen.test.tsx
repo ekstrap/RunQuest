@@ -71,6 +71,53 @@ describe('HomeScreen', () => {
   });
 });
 
+describe('HomeScreen calibration adjust control', () => {
+  it('derives the displayed session from persisted calibration, not just the bracket', async () => {
+    const repository = await onboardedRepository();
+    await repository.saveCalibration({ step: 2 }); // advanced → 20-minute session
+
+    renderHome(repository);
+
+    expect(await screen.findByText('Walk/run for 20 minutes')).toBeTruthy();
+  });
+
+  it('raises the prescription immediately and persists it when "Too easy" is pressed', async () => {
+    const repository = await onboardedRepository();
+
+    renderHome(repository);
+    // never-run starts at the 10-minute rung.
+    expect(await screen.findByText('Walk/run for 10 minutes')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('calibration-too-easy'));
+
+    expect(await screen.findByText('Walk/run for 15 minutes')).toBeTruthy();
+    expect(await repository.getCalibrationState()).toEqual({ step: 1 });
+  });
+
+  it('lowers the prescription immediately and persists it when "Too hard" is pressed', async () => {
+    const repository = await onboardedRepository();
+    await repository.saveCalibration({ step: 2 }); // 20-minute session
+
+    renderHome(repository);
+    expect(await screen.findByText('Walk/run for 20 minutes')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('calibration-too-hard'));
+
+    expect(await screen.findByText('Walk/run for 15 minutes')).toBeTruthy();
+    expect(await repository.getCalibrationState()).toEqual({ step: 1 });
+  });
+
+  it('never shows a numeric ability or step score', async () => {
+    const repository = await onboardedRepository();
+    await repository.saveCalibration({ step: 3 });
+
+    renderHome(repository);
+    await screen.findByText(/Walk\/run for/);
+
+    expect(screen.queryByText(/step 3|step: 3|ability|fitness/i)).toBeNull();
+  });
+});
+
 describe('HomeScreen commitment control', () => {
   it('changes the weekly commitment when the week has not started', async () => {
     const repository = await onboardedRepository();
