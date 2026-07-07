@@ -153,6 +153,76 @@ describe('RunActiveScreen', () => {
     expect(session.distanceMeters).toBeNull();
   });
 
+  describe('week-completion bonus', () => {
+    it('awards base + bonus XP when the run completes the week, and passes it to the summary', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      // One session already done this week (fake now is Tue 2026-06-16; Monday
+      // 06-15 is the same week) — this run brings the count to the commitment.
+      await repository.saveSession({
+        mode: 'interval',
+        startedAt: new Date('2026-06-15T09:00:00Z').getTime(),
+        durationSeconds: 600,
+        distanceMeters: null,
+      });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // Base 100 + week bonus 200 = 300 XP → level 3 (threshold 250).
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 300, level: 3 });
+      expect(mockReplace).toHaveBeenCalledWith(
+        expect.objectContaining({
+          params: expect.objectContaining({
+            xpAwarded: '100',
+            weekBonusAwarded: '200',
+            leveledUp: '1',
+            level: '3',
+          }),
+        }),
+      );
+    });
+
+    it('awards no bonus when the week is still short of the commitment', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 3 });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 100, level: 2 });
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.weekBonusAwarded).toBeUndefined();
+    });
+
+    it('awards no second bonus for an extra session beyond the commitment', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      for (const hour of [7, 9]) {
+        await repository.saveSession({
+          mode: 'interval',
+          startedAt: new Date(`2026-06-15T0${hour}:00:00Z`).getTime(),
+          durationSeconds: 600,
+          distanceMeters: null,
+        });
+      }
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // Only the flat base XP — the week bonus already fired on session 2.
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 100, level: 2 });
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.weekBonusAwarded).toBeUndefined();
+    });
+  });
+
   describe('interval mode audio cues', () => {
     beforeEach(() => {
       mockMode = 'interval';
