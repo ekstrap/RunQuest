@@ -1,4 +1,10 @@
-import { BASE_SESSION_XP, awardSessionXp, levelForXp } from './progression';
+import {
+  BASE_SESSION_XP,
+  applyXp,
+  awardSessionXp,
+  levelForXp,
+  levelProgress,
+} from './progression';
 
 describe('levelForXp', () => {
   it('derives the front-loaded early levels', () => {
@@ -51,5 +57,59 @@ describe('awardSessionXp', () => {
 
     expect(result.progression).toEqual({ xpTotal: 200, level: 2 });
     expect(result.leveledUp).toBe(false);
+  });
+});
+
+describe('applyXp', () => {
+  it('awards an arbitrary amount and reports the level transition', () => {
+    // 200 bonus XP from 100/level 2 → 300 total crosses the 250 threshold.
+    const result = applyXp({ xpTotal: 100, level: 2 }, 200);
+
+    expect(result).toEqual({
+      xpAwarded: 200,
+      progression: { xpTotal: 300, level: 3 },
+      leveledUp: true,
+      previousLevel: 2,
+      newLevel: 3,
+    });
+  });
+
+  it('reports no level-up when the amount stays within the level', () => {
+    const result = applyXp({ xpTotal: 250, level: 3 }, 50);
+
+    expect(result.progression).toEqual({ xpTotal: 300, level: 3 });
+    expect(result.leveledUp).toBe(false);
+  });
+});
+
+describe('levelProgress', () => {
+  it('is empty exactly at a level threshold', () => {
+    // 100 XP = level 2 exactly; next level (3) needs 150 more (threshold 250).
+    expect(levelProgress(100)).toEqual({
+      level: 2,
+      xpIntoLevel: 0,
+      xpForLevel: 150,
+      ratio: 0,
+    });
+  });
+
+  it('reports partial progress mid-level', () => {
+    // 175 XP: level 2, 75 into the 150-wide band toward level 3.
+    expect(levelProgress(175)).toEqual({
+      level: 2,
+      xpIntoLevel: 75,
+      xpForLevel: 150,
+      ratio: 0.5,
+    });
+  });
+
+  it('uses the constant step in the linear region past the table', () => {
+    // 375 XP: level 3 starts at 250, level 4 at 500 → 125 into a 250 band.
+    expect(levelProgress(375)).toEqual({
+      level: 3,
+      xpIntoLevel: 125,
+      xpForLevel: 250,
+      ratio: 0.5,
+    });
   });
 });

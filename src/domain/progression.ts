@@ -55,18 +55,52 @@ export function levelForXp(xpTotal: number): number {
 }
 
 /**
- * Award flat base XP for completing a session. Ignores all session metrics by
- * design (flat within a session; never pace/distance/PRs — DESIGN.md §3.6).
+ * Apply an XP award of any amount (base session XP, week-completion bonus) and
+ * report the resulting state and level transition.
  */
-export function awardSessionXp(current: ProgressionState): SessionXpResult {
-  const xpTotal = current.xpTotal + BASE_SESSION_XP;
+export function applyXp(current: ProgressionState, amount: number): SessionXpResult {
+  const xpTotal = current.xpTotal + amount;
   const previousLevel = current.level;
   const newLevel = levelForXp(xpTotal);
   return {
-    xpAwarded: BASE_SESSION_XP,
+    xpAwarded: amount,
     progression: { xpTotal, level: newLevel },
     leveledUp: newLevel > previousLevel,
     previousLevel,
     newLevel,
   };
+}
+
+/**
+ * Award flat base XP for completing a session. Ignores all session metrics by
+ * design (flat within a session; never pace/distance/PRs — DESIGN.md §3.6).
+ */
+export function awardSessionXp(current: ProgressionState): SessionXpResult {
+  return applyXp(current, BASE_SESSION_XP);
+}
+
+/** Cumulative XP required to reach a given level (table, then linear). */
+function xpToReachLevel(level: number): number {
+  if (level <= LEVEL_THRESHOLDS.length) {
+    return LEVEL_THRESHOLDS[level - 1];
+  }
+  const last = LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length - 1];
+  return last + (level - LEVEL_THRESHOLDS.length) * LINEAR_STEP;
+}
+
+/**
+ * Position within the current level for the home screen's XP bar: how far
+ * `xpTotal` has climbed from this level's threshold toward the next one.
+ */
+export function levelProgress(xpTotal: number): {
+  level: number;
+  xpIntoLevel: number;
+  xpForLevel: number;
+  ratio: number;
+} {
+  const level = levelForXp(xpTotal);
+  const currentThreshold = xpToReachLevel(level);
+  const xpForLevel = xpToReachLevel(level + 1) - currentThreshold;
+  const xpIntoLevel = xpTotal - currentThreshold;
+  return { level, xpIntoLevel, xpForLevel, ratio: xpIntoLevel / xpForLevel };
 }

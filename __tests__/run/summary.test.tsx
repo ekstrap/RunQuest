@@ -54,6 +54,19 @@ describe('RunSummaryScreen', () => {
     expect(screen.queryByTestId('level-up')).toBeNull();
   });
 
+  it('celebrates the week-completion bonus when one was awarded', () => {
+    mockParams.weekBonusAwarded = '200';
+    render(<RunSummaryScreen />);
+
+    expect(screen.getByTestId('week-bonus')).toHaveTextContent('Week complete! +200 bonus XP');
+  });
+
+  it('shows no week-bonus line when no bonus was awarded', () => {
+    render(<RunSummaryScreen />);
+
+    expect(screen.queryByTestId('week-bonus')).toBeNull();
+  });
+
   it('shows no week, streak, or lifetime text', () => {
     render(<RunSummaryScreen />);
 

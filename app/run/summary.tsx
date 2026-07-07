@@ -10,9 +10,10 @@ import { formatElapsed } from '@/src/domain/elapsed';
  * (the awarding already happened in the run screen's handleEnd), so there are no
  * persistence side-effects on render and no double-award risk.
  *
- * Shows **only** distance / time / XP / a conditional level-up. Week progress,
- * streak, and lifetime deliberately live elsewhere (home / stats screens) and
- * never appear here.
+ * Shows **only** distance / time / XP / a conditional week-completion bonus /
+ * a conditional level-up (§3.20: base session XP and week-completion bonus if
+ * applicable). Week *progress*, streak, and lifetime deliberately live
+ * elsewhere (home / stats screens) and never appear here.
  */
 export default function RunSummaryScreen() {
   const router = useRouter();
@@ -20,12 +21,14 @@ export default function RunSummaryScreen() {
     durationSeconds?: string;
     distanceMeters?: string;
     xpAwarded?: string;
+    weekBonusAwarded?: string;
     leveledUp?: string;
     level?: string;
   }>();
 
   const durationSeconds = Number(params.durationSeconds ?? 0);
   const xpAwarded = Number(params.xpAwarded ?? 0);
+  const weekBonusAwarded = Number(params.weekBonusAwarded ?? 0);
   const leveledUp = params.leveledUp === '1';
   const level = Number(params.level ?? 0);
 
@@ -45,6 +48,12 @@ export default function RunSummaryScreen() {
       <Text style={styles.xp} testID="summary-xp">
         +{xpAwarded} XP
       </Text>
+
+      {weekBonusAwarded > 0 && (
+        <Text style={styles.weekBonus} testID="week-bonus">
+          Week complete! +{weekBonusAwarded} bonus XP
+        </Text>
+      )}
 
       {leveledUp && (
         <Text style={styles.levelUp} testID="level-up">
@@ -87,6 +96,13 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#2563eb',
+  },
+  weekBonus: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#16a34a',
+    textAlign: 'center',
+    marginTop: 12,
   },
   levelUp: {
     fontSize: 20,

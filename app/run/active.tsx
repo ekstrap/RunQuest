@@ -4,7 +4,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { prescriptionForBracket } from '@/src/domain/calibration';
-import { awardSessionXp } from '@/src/domain/progression';
+import { applyXp, awardSessionXp } from '@/src/domain/progression';
+import { completesWeek, sessionsInWeek, startOfWeek, weekBonusXp } from '@/src/domain/week';
 import { buildSessionRecord } from '@/src/domain/session';
 import { buildCueSchedule, type CueEvent } from '@/src/domain/interval-cues';
 import { formatElapsed } from '@/src/domain/elapsed';
@@ -110,7 +111,27 @@ export default function RunActiveScreen() {
     // Award flat base XP for showing up, then hand the payoff to the separate
     // summary screen. No XP/level UI ever appears on the calm run screen (§3.9).
     const current = await repository.getProgressionState();
-    const result = awardSessionXp(current);
+    let result = awardSessionXp(current);
+
+    // Week-completion bonus (§3.6): fires exactly when this session brings the
+    // week's count to the commitment — extras beyond it award nothing further.
+    const [onboarding, sessions] = await Promise.all([
+      repository.getOnboardingState(),
+      repository.getSessions(),
+    ]);
+    const commitment = onboarding?.weeklyCommitment ?? 2;
+    let weekBonusAwarded = 0;
+    if (completesWeek(sessionsInWeek(sessions, startOfWeek(Date.now())), commitment)) {
+      weekBonusAwarded = weekBonusXp(commitment);
+      const bonusResult = applyXp(result.progression, weekBonusAwarded);
+      result = {
+        ...bonusResult,
+        // The summary's level-up line reflects base + bonus combined.
+        xpAwarded: result.xpAwarded,
+        previousLevel: result.previousLevel,
+        leveledUp: bonusResult.newLevel > result.previousLevel,
+      };
+    }
     await repository.saveProgression(result.progression);
 
     router.replace({
@@ -123,6 +144,7 @@ export default function RunActiveScreen() {
           ? { distanceMeters: String(record.distanceMeters) }
           : {}),
         xpAwarded: String(result.xpAwarded),
+        ...(weekBonusAwarded > 0 ? { weekBonusAwarded: String(weekBonusAwarded) } : {}),
         leveledUp: result.leveledUp ? '1' : '0',
         level: String(result.newLevel),
       },
