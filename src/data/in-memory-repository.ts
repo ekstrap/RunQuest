@@ -1,4 +1,9 @@
-import type { OnboardingState, ProgressionState, SessionRecord } from '@/src/domain/types';
+import type {
+  CalibrationState,
+  OnboardingState,
+  ProgressionState,
+  SessionRecord,
+} from '@/src/domain/types';
 import type { Repository } from './repository';
 
 /** A brand-new user: level 1, no XP yet. */
@@ -13,6 +18,8 @@ export class InMemoryRepository implements Repository {
   private progression: ProgressionState;
   /** null until onboarding is completed (DESIGN.md §3.20). */
   private onboarding: OnboardingState | null = null;
+  /** null until the first auto-advance or manual adjust seeds it (§3.20). */
+  private calibration: CalibrationState | null = null;
   /** Completed sessions, oldest first. */
   private sessions: SessionRecord[] = [];
 
@@ -34,6 +41,14 @@ export class InMemoryRepository implements Repository {
 
   async saveOnboarding(state: OnboardingState): Promise<void> {
     this.onboarding = state;
+  }
+
+  async getCalibrationState(): Promise<CalibrationState | null> {
+    return this.calibration;
+  }
+
+  async saveCalibration(state: CalibrationState): Promise<void> {
+    this.calibration = state;
   }
 
   async saveSession(record: SessionRecord): Promise<void> {
