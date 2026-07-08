@@ -7,8 +7,8 @@ import { expoCuePlayer } from '@/src/run/expo-cue-player';
 import { expoLocationSource } from '@/src/run/expo-location-source';
 
 /**
- * Root navigation shell. A single Stack for now; stats routes land in later
- * issues. The whole tree is wrapped in RepositoryProvider (the storage boundary),
+ * Root navigation shell. A single Stack. The whole tree is wrapped in
+ * RepositoryProvider (the storage boundary),
  * LocationProvider (the GPS boundary), and CuePlayerProvider (the audio boundary)
  * so any screen can read through those injected interfaces.
  */
@@ -22,6 +22,7 @@ export default function RootLayout() {
             <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
             <Stack.Screen name="home" options={{ title: 'RunQuest' }} />
             <Stack.Screen name="run" options={{ headerShown: false }} />
+            <Stack.Screen name="stats" options={{ title: 'Your progress' }} />
           </Stack>
         </CuePlayerProvider>
       </LocationProvider>
