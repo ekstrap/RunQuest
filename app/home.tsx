@@ -147,6 +147,14 @@ export default function HomeScreen() {
             />
           </View>
 
+          <Pressable
+            testID="stats-link"
+            style={styles.statsLink}
+            onPress={() => router.push('/stats')}
+          >
+            <Text style={styles.statsLinkText}>Your progress</Text>
+          </Pressable>
+
           {onboarding && (
             <View style={styles.commitmentRow}>
               <Text style={styles.commitmentLabel}>Sessions per week</Text>
@@ -260,6 +268,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 5,
     backgroundColor: '#2563eb',
+  },
+  statsLink: {
+    marginTop: 24,
+    alignSelf: 'center',
+  },
+  statsLinkText: {
+    fontSize: 15,
+    color: '#2563eb',
+    textDecorationLine: 'underline',
   },
   commitmentRow: {
     marginTop: 32,

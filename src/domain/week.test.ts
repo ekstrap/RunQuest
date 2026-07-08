@@ -2,6 +2,7 @@ import type { SessionRecord } from './types';
 import {
   canChangeCommitment,
   completesWeek,
+  lifetimeWeeksCompleted,
   sessionsInWeek,
   startOfWeek,
   weekBonusXp,
@@ -100,6 +101,36 @@ describe('completesWeek', () => {
     // The bonus fires once: extra sessions beyond the commitment award nothing.
     expect(completesWeek(3, 2)).toBe(false);
     expect(completesWeek(3, 3)).toBe(true);
+  });
+});
+
+describe('lifetimeWeeksCompleted', () => {
+  const week1 = new Date(2026, 5, 1, 0, 0).getTime(); // Mon 06-01
+  const week2 = new Date(2026, 5, 8, 0, 0).getTime(); // Mon 06-08
+
+  it('is 0 with no sessions', () => {
+    expect(lifetimeWeeksCompleted([], 2)).toBe(0);
+  });
+
+  it('counts a week that met the commitment', () => {
+    const sessions = [sessionAt(week1 + 1_000), sessionAt(week1 + 2_000)];
+    expect(lifetimeWeeksCompleted(sessions, 2)).toBe(1);
+  });
+
+  it('does not count a partial week', () => {
+    const sessions = [sessionAt(week1 + 1_000)];
+    expect(lifetimeWeeksCompleted(sessions, 2)).toBe(0);
+  });
+
+  it('only ever grows as sessions accrue across weeks', () => {
+    const sessions = [sessionAt(week1 + 1_000), sessionAt(week1 + 2_000)];
+    const before = lifetimeWeeksCompleted(sessions, 2);
+
+    sessions.push(sessionAt(week2 + 1_000)); // partial second week — no change
+    expect(lifetimeWeeksCompleted(sessions, 2)).toBe(before);
+
+    sessions.push(sessionAt(week2 + 2_000)); // second week completes
+    expect(lifetimeWeeksCompleted(sessions, 2)).toBe(before + 1);
   });
 });
 

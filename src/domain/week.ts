@@ -44,6 +44,28 @@ export function weekProgress(
 }
 
 /**
+ * Distinct weeks that met the commitment — the lifetime legacy counter (§3.8).
+ * Monotonic by construction: a completed week never un-completes, so this only
+ * ever grows. Uses the *current* commitment as a proxy for historical weeks
+ * (we don't persist per-week commitment — acceptable v1 simplification).
+ */
+export function lifetimeWeeksCompleted(
+  sessions: SessionRecord[],
+  commitment: WeeklyCommitment,
+): number {
+  const countsByWeek = new Map<number, number>();
+  for (const session of sessions) {
+    const week = startOfWeek(session.startedAt);
+    countsByWeek.set(week, (countsByWeek.get(week) ?? 0) + 1);
+  }
+  let completedWeeks = 0;
+  for (const count of countsByWeek.values()) {
+    if (count >= commitment) completedWeeks += 1;
+  }
+  return completedWeeks;
+}
+
+/**
  * Week-completion bonus XP per commitment (§3.6: scaled by weekly commitment —
  * committing to 3 sessions earns a larger bonus than 2). PLACEHOLDERs pending
  * tuning (DESIGN.md §3.20.5).

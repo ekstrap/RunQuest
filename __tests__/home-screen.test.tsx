@@ -56,6 +56,12 @@ describe('HomeScreen', () => {
     expect(await screen.findByText('0 of 2 sessions this week')).toBeTruthy();
   });
 
+  it('links to the stats screen for lifetime progress', async () => {
+    renderHome(await onboardedRepository());
+
+    expect(await screen.findByText('Your progress')).toBeTruthy();
+  });
+
   it('counts this week’s completed sessions in the progress line', async () => {
     const repository = await onboardedRepository();
     await repository.saveSession({
