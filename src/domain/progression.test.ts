@@ -1,6 +1,8 @@
 import {
   BASE_SESSION_XP,
+  FREE_RUN_XP,
   applyXp,
+  awardFreeRunXp,
   awardSessionXp,
   levelForXp,
   levelProgress,
@@ -57,6 +59,34 @@ describe('awardSessionXp', () => {
 
     expect(result.progression).toEqual({ xpTotal: 200, level: 2 });
     expect(result.leveledUp).toBe(false);
+  });
+});
+
+describe('awardFreeRunXp', () => {
+  it('awards a small flat amount, smaller than a prescribed session (issue #10)', () => {
+    expect(FREE_RUN_XP).toBeGreaterThan(0);
+    expect(FREE_RUN_XP).toBeLessThan(BASE_SESSION_XP);
+  });
+
+  it('grants the same flat amount regardless of the starting state', () => {
+    const starts = [
+      { xpTotal: 0, level: 1 },
+      { xpTotal: 100, level: 2 },
+      { xpTotal: 1_337, level: 8 },
+    ];
+
+    for (const start of starts) {
+      const result = awardFreeRunXp(start);
+      expect(result.xpAwarded).toBe(FREE_RUN_XP);
+      expect(result.progression.xpTotal).toBe(start.xpTotal + FREE_RUN_XP);
+    }
+  });
+
+  it('still crosses a level threshold when the small award happens to reach it', () => {
+    // Level 2 sits at 100; FREE_RUN_XP (25) from 90 clears it.
+    const result = awardFreeRunXp({ xpTotal: 90, level: 1 });
+    expect(result.leveledUp).toBe(true);
+    expect(result.newLevel).toBe(2);
   });
 });
 

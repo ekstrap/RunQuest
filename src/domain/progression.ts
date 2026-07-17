@@ -16,6 +16,14 @@ import type { ProgressionState } from './types';
 export const BASE_SESSION_XP = 100;
 
 /**
+ * XP for an off-plan / free run (DESIGN.md §3.6, issue #10): a small flat amount,
+ * deliberately smaller than {@link BASE_SESSION_XP} — a free run is rewarded but
+ * not equated with a prescribed session, and never advances the week. Flat and
+ * metric-blind for the same reason base XP is. PLACEHOLDER pending tuning.
+ */
+export const FREE_RUN_XP = 25;
+
+/**
  * Cumulative XP required to *reach* each level, front-loaded (small early steps)
  * then linear. Index i holds the threshold for level i+1: level 1 at 0, level 2
  * at 100, level 3 at 250. Beyond the table, every further level costs a constant
@@ -77,6 +85,16 @@ export function applyXp(current: ProgressionState, amount: number): SessionXpRes
  */
 export function awardSessionXp(current: ProgressionState): SessionXpResult {
   return applyXp(current, BASE_SESSION_XP);
+}
+
+/**
+ * Award the small flat XP for an off-plan / free run (issue #10). Like
+ * {@link awardSessionXp} it ignores all session metrics; it differs only in the
+ * (smaller) amount. Week progress and the week bonus are handled by the caller,
+ * which skips them entirely for a free run.
+ */
+export function awardFreeRunXp(current: ProgressionState): SessionXpResult {
+  return applyXp(current, FREE_RUN_XP);
 }
 
 /** Cumulative XP required to reach a given level (table, then linear). */

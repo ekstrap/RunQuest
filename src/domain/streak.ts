@@ -7,7 +7,7 @@
  */
 
 import type { SessionRecord, WeeklyCommitment } from './types';
-import { startOfWeek } from './week';
+import { countsTowardWeek, startOfWeek } from './week';
 
 // Weeks are anchored via startOfWeek, so a fixed 7-day span is fine; the DST
 // hour drift never reaches a whole week (acceptable v1 edge).
@@ -43,6 +43,7 @@ export function streakStatus(
 ): StreakStatus {
   const countsByWeek = new Map<number, number>();
   for (const session of sessions) {
+    if (!countsTowardWeek(session)) continue; // free runs never complete a week (issue #10)
     const week = startOfWeek(session.startedAt);
     countsByWeek.set(week, (countsByWeek.get(week) ?? 0) + 1);
   }

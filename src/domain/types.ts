@@ -49,6 +49,15 @@ export interface SessionRecord {
   durationSeconds: number;
   /** Post-run GPS distance in meters, or null when GPS was unavailable. */
   distanceMeters: number | null;
+  /**
+   * True for an off-plan / free run — one the user chose to do outside the
+   * week's prescribed sessions (DESIGN.md §3.6, issue #10). A free run earns a
+   * small flat XP amount, never advances week progress or grants the week bonus,
+   * and is never penalized in any counter. Absent/false means an ordinary
+   * on-plan (prescribed) session. Weekly-completion counters (week/streak/
+   * lifetime) exclude off-plan sessions; run history still shows them.
+   */
+  offPlan?: boolean;
 }
 
 /**

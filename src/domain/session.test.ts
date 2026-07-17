@@ -42,6 +42,23 @@ describe('buildSessionRecord', () => {
     expect(record.durationSeconds).toBe(30);
   });
 
+  it('leaves a prescribed session on-plan by default (no offPlan flag)', () => {
+    const record = buildSessionRecord({ mode: 'interval', startedAt: 0, endedAt: 30_000 });
+
+    expect(record.offPlan).toBeUndefined();
+  });
+
+  it('marks an off-plan free run when requested (issue #10)', () => {
+    const record = buildSessionRecord({
+      mode: 'just-run',
+      startedAt: 0,
+      endedAt: 30_000,
+      offPlan: true,
+    });
+
+    expect(record.offPlan).toBe(true);
+  });
+
   it('never produces a negative duration if the clock appears to go backwards', () => {
     const record = buildSessionRecord({
       mode: 'just-run',

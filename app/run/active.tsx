@@ -8,7 +8,7 @@ import {
   initialCalibration,
   prescriptionForCalibration,
 } from '@/src/domain/calibration';
-import { applyXp, awardSessionXp } from '@/src/domain/progression';
+import { applyXp, awardFreeRunXp, awardSessionXp } from '@/src/domain/progression';
 import { completesWeek, sessionsInWeek, startOfWeek, weekBonusXp } from '@/src/domain/week';
 import { buildSessionRecord } from '@/src/domain/session';
 import { buildCueSchedule, type CueEvent } from '@/src/domain/interval-cues';
@@ -46,8 +46,12 @@ export default function RunActiveScreen() {
   const repository = useRepository();
   const locationSource = useLocationSource();
   const cuePlayer = useCuePlayer();
-  const params = useLocalSearchParams<{ mode: string }>();
+  const params = useLocalSearchParams<{ mode: string; offPlan?: string }>();
   const mode = parseRunType(params.mode);
+  // Off-plan / free run (issue #10): earns small flat XP, never advances the
+  // week or the week bonus, never touches calibration. Carried from the setup
+  // screen as a string param ('1' when the user chose "just a free run").
+  const offPlan = params.offPlan === '1';
 
   // startedAt is fixed for the lifetime of the run; a ref keeps it stable across renders.
   const startedAtRef = useRef<number>(Date.now());
@@ -114,59 +118,67 @@ export default function RunActiveScreen() {
       startedAt: startedAtRef.current,
       endedAt: Date.now(),
       distanceMeters: readingRef.current.distanceMeters,
+      offPlan,
     });
     await repository.saveSession(record);
 
-    // Award flat base XP for showing up, then hand the payoff to the separate
-    // summary screen. No XP/level UI ever appears on the calm run screen (§3.9).
+    // Award XP for showing up, then hand the payoff to the separate summary
+    // screen. No XP/level UI ever appears on the calm run screen (§3.9). A free
+    // run (issue #10) earns a small flat amount and stops there — it never
+    // advances the week, the week bonus, or calibration.
     const current = await repository.getProgressionState();
-    let result = awardSessionXp(current);
+    let result = offPlan ? awardFreeRunXp(current) : awardSessionXp(current);
 
-    // Week-completion bonus (§3.6): fires exactly when this session brings the
-    // week's count to the commitment — extras beyond it award nothing further.
-    const [onboarding, sessions] = await Promise.all([
-      repository.getOnboardingState(),
-      repository.getSessions(),
-    ]);
-    const commitment = onboarding?.weeklyCommitment ?? 2;
-    const weekComplete = completesWeek(
-      sessionsInWeek(sessions, startOfWeek(Date.now())),
-      commitment,
-    );
     let weekBonusAwarded = 0;
-    if (weekComplete) {
-      weekBonusAwarded = weekBonusXp(commitment);
-      const bonusResult = applyXp(result.progression, weekBonusAwarded);
-      result = {
-        ...bonusResult,
-        // The summary's level-up line reflects base + bonus combined.
-        xpAwarded: result.xpAwarded,
-        previousLevel: result.previousLevel,
-        leveledUp: bonusResult.newLevel > result.previousLevel,
-      };
-    }
-    await repository.saveProgression(result.progression);
-
-    // Calibration auto-advance (§3.20.3–4): a completed week gently steps the
-    // prescription up by one rung for subsequent sessions; an off/partial week
-    // holds steady and never demotes. On a step-up, hand the new duration to the
-    // summary for a gentle announcement (display-only). Seed from the persisted
-    // rung, falling back to the bracket's starting rung when unseeded.
     let calibrationSteppedToMinutes: number | null = null;
-    if (weekComplete) {
-      const savedCalibration = await repository.getCalibrationState();
-      const currentCalibration =
-        savedCalibration ?? initialCalibration(onboarding?.bracket ?? 'never-run');
-      const { state: nextCalibration, steppedUp } = advanceOnWeekComplete(
-        currentCalibration,
-        true,
+
+    if (!offPlan) {
+      // Week-completion bonus (§3.6): fires exactly when this session brings the
+      // week's count to the commitment — extras beyond it award nothing further.
+      // Free runs are excluded from the count by sessionsInWeek (issue #10).
+      const [onboarding, sessions] = await Promise.all([
+        repository.getOnboardingState(),
+        repository.getSessions(),
+      ]);
+      const commitment = onboarding?.weeklyCommitment ?? 2;
+      const weekComplete = completesWeek(
+        sessionsInWeek(sessions, startOfWeek(Date.now())),
+        commitment,
       );
-      if (steppedUp) {
-        await repository.saveCalibration(nextCalibration);
-        calibrationSteppedToMinutes =
-          prescriptionForCalibration(nextCalibration).durationMinutes;
+      if (weekComplete) {
+        weekBonusAwarded = weekBonusXp(commitment);
+        const bonusResult = applyXp(result.progression, weekBonusAwarded);
+        result = {
+          ...bonusResult,
+          // The summary's level-up line reflects base + bonus combined.
+          xpAwarded: result.xpAwarded,
+          previousLevel: result.previousLevel,
+          leveledUp: bonusResult.newLevel > result.previousLevel,
+        };
+      }
+
+      // Calibration auto-advance (§3.20.3–4): a completed week gently steps the
+      // prescription up by one rung for subsequent sessions; an off/partial week
+      // holds steady and never demotes. On a step-up, hand the new duration to
+      // the summary for a gentle announcement (display-only). Seed from the
+      // persisted rung, falling back to the bracket's starting rung when unseeded.
+      if (weekComplete) {
+        const savedCalibration = await repository.getCalibrationState();
+        const currentCalibration =
+          savedCalibration ?? initialCalibration(onboarding?.bracket ?? 'never-run');
+        const { state: nextCalibration, steppedUp } = advanceOnWeekComplete(
+          currentCalibration,
+          true,
+        );
+        if (steppedUp) {
+          await repository.saveCalibration(nextCalibration);
+          calibrationSteppedToMinutes =
+            prescriptionForCalibration(nextCalibration).durationMinutes;
+        }
       }
     }
+
+    await repository.saveProgression(result.progression);
 
     router.replace({
       pathname: '/run/summary',
