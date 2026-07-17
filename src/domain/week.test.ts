@@ -14,6 +14,11 @@ function sessionAt(startedAt: number): SessionRecord {
   return { mode: 'interval', startedAt, durationSeconds: 600, distanceMeters: null };
 }
 
+/** A minimal off-plan / free run started at the given time (issue #10). */
+function freeRunAt(startedAt: number): SessionRecord {
+  return { ...sessionAt(startedAt), offPlan: true };
+}
+
 describe('startOfWeek', () => {
   it('returns Monday 00:00 local for a mid-week timestamp', () => {
     // Wed 2026-06-17 14:30 local → Mon 2026-06-15 00:00 local.
@@ -45,6 +50,17 @@ describe('sessionsInWeek', () => {
     ];
 
     expect(sessionsInWeek(sessions, weekStart)).toBe(2);
+  });
+
+  it('does not count off-plan free runs toward the week (issue #10)', () => {
+    const weekStart = new Date(2026, 5, 15, 0, 0).getTime(); // Mon 06-15
+    const sessions = [
+      sessionAt(new Date(2026, 5, 15, 7, 0).getTime()), // prescribed — counts
+      freeRunAt(new Date(2026, 5, 16, 7, 0).getTime()), // free run — does not count
+      freeRunAt(new Date(2026, 5, 17, 7, 0).getTime()), // free run — does not count
+    ];
+
+    expect(sessionsInWeek(sessions, weekStart)).toBe(1);
   });
 });
 
@@ -119,6 +135,16 @@ describe('lifetimeWeeksCompleted', () => {
 
   it('does not count a partial week', () => {
     const sessions = [sessionAt(week1 + 1_000)];
+    expect(lifetimeWeeksCompleted(sessions, 2)).toBe(0);
+  });
+
+  it('ignores off-plan free runs — they never complete a week (issue #10)', () => {
+    // One prescribed + two free runs in a 2-commitment week is still incomplete.
+    const sessions = [
+      sessionAt(week1 + 1_000),
+      freeRunAt(week1 + 2_000),
+      freeRunAt(week1 + 3_000),
+    ];
     expect(lifetimeWeeksCompleted(sessions, 2)).toBe(0);
   });
 

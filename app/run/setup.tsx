@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -19,15 +19,26 @@ const RUN_TYPES: { value: RunType; label: string; hint: string }[] = [
  */
 export default function RunSetupScreen() {
   const router = useRouter();
+  // Off-plan / free run (issue #10): carried from the home screen's secondary
+  // entry point and passed straight through to the in-run screen. The run-type
+  // picker is identical for on- and off-plan runs — only the XP/week handling on
+  // completion differs.
+  const params = useLocalSearchParams<{ offPlan?: string }>();
+  const offPlan = params.offPlan === '1';
   const [mode, setMode] = useState<RunType>('interval');
 
   function handleStart() {
-    router.push({ pathname: '/run/active', params: { mode } });
+    router.push({
+      pathname: '/run/active',
+      params: { mode, ...(offPlan ? { offPlan: '1' } : {}) },
+    });
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.heading}>How do you want to move?</Text>
+      <Text style={styles.heading}>
+        {offPlan ? 'A free run — how do you want to move?' : 'How do you want to move?'}
+      </Text>
       {RUN_TYPES.map(({ value, label, hint }) => {
         const selected = value === mode;
         return (

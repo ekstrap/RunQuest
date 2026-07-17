@@ -13,6 +13,11 @@ export interface SessionInput {
   endedAt: number;
   /** Post-run GPS distance in meters, if any. */
   distanceMeters?: number | null;
+  /**
+   * True for an off-plan / free run — a run outside the week's prescribed
+   * sessions (issue #10). Defaults to false (an on-plan prescribed session).
+   */
+  offPlan?: boolean;
 }
 
 /**
@@ -31,5 +36,8 @@ export function buildSessionRecord(input: SessionInput): SessionRecord {
     startedAt: input.startedAt,
     durationSeconds,
     distanceMeters: input.distanceMeters ?? null,
+    // Only stamp the flag for a free run; an on-plan session omits it (absent =
+    // on-plan), keeping prescribed records unchanged.
+    ...(input.offPlan ? { offPlan: true } : {}),
   };
 }

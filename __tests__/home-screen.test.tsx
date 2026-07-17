@@ -50,6 +50,13 @@ describe('HomeScreen', () => {
     expect(screen.getByText('Start')).toBeTruthy();
   });
 
+  it('offers a free-run entry point outside the prescribed session (issue #10)', async () => {
+    renderHome(await onboardedRepository());
+
+    expect(await screen.findByTestId('free-run-link')).toBeTruthy();
+    expect(screen.getByText('Just feel like a run?')).toBeTruthy();
+  });
+
   it('shows week progress against the weekly commitment', async () => {
     renderHome(await onboardedRepository());
 

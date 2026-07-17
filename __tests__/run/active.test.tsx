@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { sessionsInWeek, startOfWeek } from '@/src/domain/week';
 import type { CueEvent } from '@/src/domain/interval-cues';
 import { CuePlayerProvider } from '@/src/providers/cue-player-provider';
 import { LocationProvider } from '@/src/providers/location-provider';
@@ -13,10 +14,11 @@ import RunActiveScreen from '@/app/run/active';
 
 const mockReplace = jest.fn();
 let mockMode = 'just-run';
+let mockOffPlan: string | undefined;
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace }),
-  useLocalSearchParams: () => ({ mode: mockMode }),
+  useLocalSearchParams: () => ({ mode: mockMode, ...(mockOffPlan ? { offPlan: mockOffPlan } : {}) }),
 }));
 
 /** A fake location source that emits a single fixed reading on subscribe. */
@@ -58,6 +60,7 @@ describe('RunActiveScreen', () => {
     jest.setSystemTime(new Date('2026-06-16T08:00:00Z'));
     mockReplace.mockClear();
     mockMode = 'just-run';
+    mockOffPlan = undefined;
   });
 
   afterEach(() => {
@@ -279,6 +282,75 @@ describe('RunActiveScreen', () => {
       // rung 2 → rung 3 (25 min), not bracket-start rung 0 → 1.
       expect(await repository.getCalibrationState()).toEqual({ step: 3 });
       expect(mockReplace.mock.calls[0][0].params.calibrationSteppedToMinutes).toBe('25');
+    });
+  });
+
+  describe('off-plan / free runs (issue #10)', () => {
+    beforeEach(() => {
+      mockOffPlan = '1';
+    });
+
+    it('earns small flat XP and marks the saved record off-plan', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // Small flat award (25), not the prescribed-session 100.
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 25, level: 1 });
+      const [session] = await repository.getSessions();
+      expect(session.offPlan).toBe(true);
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.xpAwarded).toBe('25');
+    });
+
+    it('does not advance the week or grant the week bonus', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      // One prescribed session already this week; a free run must NOT complete it.
+      await repository.saveSession({
+        mode: 'interval',
+        startedAt: new Date('2026-06-15T09:00:00Z').getTime(),
+        durationSeconds: 600,
+        distanceMeters: null,
+      });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // Only the small free-run XP — no week bonus fired.
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 25, level: 1 });
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.weekBonusAwarded).toBeUndefined();
+      // The prescribed count is still 1 — the free run didn't advance it.
+      const sessions = await repository.getSessions();
+      expect(sessionsInWeek(sessions, startOfWeek(Date.now()))).toBe(1);
+    });
+
+    it('never advances calibration', async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      // A prescribed session sits in the week; even so, a free run must not step.
+      await repository.saveSession({
+        mode: 'interval',
+        startedAt: new Date('2026-06-15T09:00:00Z').getTime(),
+        durationSeconds: 600,
+        distanceMeters: null,
+      });
+
+      renderWithProviders(<RunActiveScreen />, { repository });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      expect(await repository.getCalibrationState()).toBeNull();
+      const params = mockReplace.mock.calls[0][0].params;
+      expect(params.calibrationSteppedToMinutes).toBeUndefined();
     });
   });
 

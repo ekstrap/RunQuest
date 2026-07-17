@@ -28,9 +28,23 @@ export function startOfWeek(timestamp: number): number {
   return date.getTime();
 }
 
-/** Count the completed sessions belonging to the week starting at `weekStart`. */
+/**
+ * Whether a session counts toward the weekly commitment. Off-plan / free runs
+ * (§3.6, issue #10) are rewarded with small XP but never advance week progress,
+ * so weekly-completion counters exclude them. Absent `offPlan` = on-plan.
+ */
+export function countsTowardWeek(session: SessionRecord): boolean {
+  return !session.offPlan;
+}
+
+/**
+ * Count the prescribed sessions belonging to the week starting at `weekStart`.
+ * Off-plan free runs are excluded (they never advance week progress — issue #10).
+ */
 export function sessionsInWeek(sessions: SessionRecord[], weekStart: number): number {
-  return sessions.filter((session) => startOfWeek(session.startedAt) === weekStart).length;
+  return sessions.filter(
+    (session) => countsTowardWeek(session) && startOfWeek(session.startedAt) === weekStart,
+  ).length;
 }
 
 /** Progress of the week containing `now` against the weekly commitment. */
@@ -55,6 +69,7 @@ export function lifetimeWeeksCompleted(
 ): number {
   const countsByWeek = new Map<number, number>();
   for (const session of sessions) {
+    if (!countsTowardWeek(session)) continue; // free runs never complete a week
     const week = startOfWeek(session.startedAt);
     countsByWeek.set(week, (countsByWeek.get(week) ?? 0) + 1);
   }

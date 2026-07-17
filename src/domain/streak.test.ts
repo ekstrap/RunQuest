@@ -15,6 +15,15 @@ const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const monday = new Date(2026, 5, 1, 0, 0).getTime(); // Mon 2026-06-01
 
 describe('streakStatus', () => {
+  it('does not count off-plan free runs toward a completed week (issue #10)', () => {
+    // One prescribed + a free run is not a completed 2-commitment week.
+    const sessions = [
+      sessionAt(monday + 1_000),
+      { ...sessionAt(monday + 2_000), offPlan: true },
+    ];
+    expect(streakStatus(sessions, 2, monday).weeks).toBe(0);
+  });
+
   it('reports a fresh zero streak for an empty history', () => {
     expect(streakStatus([], 2, monday)).toEqual({
       weeks: 0,

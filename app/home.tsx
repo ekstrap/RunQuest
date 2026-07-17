@@ -114,6 +114,16 @@ export default function HomeScreen() {
               <Text style={styles.startButtonText}>Start</Text>
             </Pressable>
 
+            {/* Off-plan / free run (issue #10): any time, no pressure — earns a
+                little XP, never counts against the week. */}
+            <Pressable
+              testID="free-run-link"
+              style={styles.freeRunLink}
+              onPress={() => router.push({ pathname: '/run/setup', params: { offPlan: '1' } })}
+            >
+              <Text style={styles.freeRunLinkText}>Just feel like a run?</Text>
+            </Pressable>
+
             <View style={styles.adjustRow}>
               <Pressable
                 testID="calibration-too-hard"
@@ -231,6 +241,15 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 20,
     fontWeight: '700',
+  },
+  freeRunLink: {
+    marginTop: 12,
+    alignSelf: 'center',
+  },
+  freeRunLinkText: {
+    fontSize: 15,
+    color: '#2563eb',
+    textDecorationLine: 'underline',
   },
   adjustRow: {
     flexDirection: 'row',

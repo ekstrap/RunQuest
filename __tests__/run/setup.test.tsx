@@ -3,14 +3,17 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import RunSetupScreen from '@/app/run/setup';
 
 const mockPush = jest.fn();
+let mockParams: Record<string, string> = {};
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 describe('RunSetupScreen', () => {
   beforeEach(() => {
     mockPush.mockClear();
+    mockParams = {};
   });
 
   it('offers all three run types', () => {
@@ -48,6 +51,19 @@ describe('RunSetupScreen', () => {
     expect(mockPush).toHaveBeenCalledWith({
       pathname: '/run/active',
       params: { mode: 'interval' },
+    });
+  });
+
+  it('carries the off-plan flag through to the in-run screen (issue #10)', () => {
+    mockParams = { offPlan: '1' };
+    render(<RunSetupScreen />);
+
+    fireEvent.press(screen.getByText('Just run'));
+    fireEvent.press(screen.getByText('Start'));
+
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/run/active',
+      params: { mode: 'just-run', offPlan: '1' },
     });
   });
 });
