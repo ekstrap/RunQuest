@@ -59,4 +59,8 @@ export class InMemoryRepository implements Repository {
     // Return a copy so callers can't mutate our internal state.
     return [...this.sessions];
   }
+
+  async replaceSessions(records: SessionRecord[]): Promise<void> {
+    this.sessions = [...records];
+  }
 }

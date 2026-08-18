@@ -48,4 +48,11 @@ export interface Repository {
 
   /** Read all completed session records, oldest first. */
   getSessions(): Promise<SessionRecord[]>;
+
+  /**
+   * Replace the whole session history with the given records, oldest first.
+   * Used by cloud sync to write back the reconciled union of device and cloud
+   * history; ordinary app flow only ever appends via `saveSession`.
+   */
+  replaceSessions(records: SessionRecord[]): Promise<void>;
 }

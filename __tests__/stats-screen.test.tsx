@@ -1,20 +1,29 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import StatsScreen from '@/app/stats';
+import { FakeAuthClient } from '@/src/auth/fake-auth-client';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { AuthProvider } from '@/src/providers/auth-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 import type { SessionRecord } from '@/src/domain/types';
+
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 
 // Route-component tests live under __tests__/ (not in app/) so expo-router's
 // file-based route scanner never treats them as screens during `expo export`.
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-function renderStats(repository: InMemoryRepository) {
+function renderStats(repository: InMemoryRepository, client = new FakeAuthClient()) {
   return render(
-    <RepositoryProvider repository={repository}>
-      <StatsScreen />
-    </RepositoryProvider>,
+    <AuthProvider client={client}>
+      <RepositoryProvider repository={repository}>
+        <StatsScreen />
+      </RepositoryProvider>
+    </AuthProvider>,
   );
 }
 
@@ -126,5 +135,34 @@ describe('StatsScreen', () => {
       ),
     ).toBeTruthy();
     expect(screen.queryByText(/step 3|step: 3|ability score|fitness/i)).toBeNull();
+  });
+});
+
+describe('StatsScreen account section', () => {
+  beforeEach(() => mockPush.mockClear());
+
+  it('offers an account to an anonymous user, describing the real difference', async () => {
+    renderStats(new InMemoryRepository());
+
+    expect(await screen.findByText(/saved on this phone/i)).toBeTruthy();
+    expect(screen.getByText('Create account')).toBeTruthy();
+  });
+
+  it('routes an anonymous user to sign-in when they ask for an account', async () => {
+    renderStats(new InMemoryRepository());
+
+    fireEvent.press(await screen.findByText('Create account'));
+
+    expect(mockPush).toHaveBeenCalledWith('/sign-in');
+  });
+
+  it('confirms the backup and offers sign-out to a signed-in user', async () => {
+    const client = new FakeAuthClient(['apple'], { id: 'user-1', provider: 'apple' });
+    renderStats(new InMemoryRepository(), client);
+
+    expect(await screen.findByText(/Signed in with Apple/)).toBeTruthy();
+    fireEvent.press(screen.getByText('Sign out'));
+
+    await waitFor(async () => expect(await client.getCurrentUser()).toBeNull());
   });
 });
