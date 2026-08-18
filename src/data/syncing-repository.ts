@@ -4,7 +4,7 @@ import type {
   ProgressionState,
   SessionRecord,
 } from '@/src/domain/types';
-import { EMPTY_REMOTE_PROFILE, type RemoteProfile, type RemoteStore } from './remote-store';
+import { EMPTY_PROFILE, type ProfileSnapshot, type RemoteStore } from './remote-store';
 import type { Repository } from './repository';
 
 /**
@@ -44,6 +44,10 @@ export class SyncingRepository implements Repository {
     return this.local.getSessions();
   }
 
+  getDataOwner(): Promise<string | null> {
+    return this.local.getDataOwner();
+  }
+
   // ---- writes: local first, cloud best-effort ----------------------------
 
   async saveProgression(state: ProgressionState): Promise<void> {
@@ -59,6 +63,16 @@ export class SyncingRepository implements Repository {
   async saveCalibration(state: CalibrationState): Promise<void> {
     await this.local.saveCalibration(state);
     await this.mirrorProfile();
+  }
+
+  setDataOwner(userId: string | null): Promise<void> {
+    return this.local.setDataOwner(userId);
+  }
+
+  async clear(): Promise<void> {
+    // Only the device copy is discarded. Wiping someone's cloud account is
+    // never something local housekeeping should be able to do.
+    await this.local.clear();
   }
 
   async replaceSessions(records: SessionRecord[]): Promise<void> {
@@ -87,6 +101,8 @@ export class SyncingRepository implements Repository {
    * Nothing here can lower a user's XP or delete a run.
    */
   async hydrate(): Promise<void> {
+    await this.discardAnotherAccountsData();
+
     const remoteProfile = await this.attempt(() => this.remote.fetchProfile(this.userId));
     const remoteSessions = await this.attempt(() => this.remote.fetchSessions(this.userId));
     if (remoteProfile === FAILED || remoteSessions === FAILED) {
@@ -95,7 +111,7 @@ export class SyncingRepository implements Repository {
     }
 
     const localProfile = await this.readLocalProfile();
-    const merged = mergeProfiles(localProfile, remoteProfile ?? EMPTY_REMOTE_PROFILE);
+    const merged = mergeProfiles(localProfile, remoteProfile ?? EMPTY_PROFILE);
     const mergedSessions = mergeSessions(await this.local.getSessions(), remoteSessions ?? []);
 
     await this.writeLocalProfile(merged);
@@ -105,9 +121,27 @@ export class SyncingRepository implements Repository {
     await this.attempt(() => this.remote.saveSessions(this.userId, mergedSessions));
   }
 
+  /**
+   * Phones get shared, handed down, and sold. If the data sitting on this device
+   * belongs to a *different* account, it must not be merged into this one — that
+   * would hand a stranger's XP and run history to whoever signs in next, and
+   * (since the merge keeps the larger XP) there would be no way back.
+   *
+   * Data with no owner is anonymous "Just run" data, which *is* adopted: that's
+   * the same person choosing to make an account, and keeping their runs is the
+   * whole point.
+   */
+  private async discardAnotherAccountsData(): Promise<void> {
+    const owner = await this.local.getDataOwner();
+    if (owner !== null && owner !== this.userId) {
+      await this.local.clear();
+    }
+    await this.local.setDataOwner(this.userId);
+  }
+
   // ---- internals ---------------------------------------------------------
 
-  private async readLocalProfile(): Promise<RemoteProfile> {
+  private async readLocalProfile(): Promise<ProfileSnapshot> {
     return {
       progression: await this.local.getProgressionState(),
       onboarding: await this.local.getOnboardingState(),
@@ -115,7 +149,7 @@ export class SyncingRepository implements Repository {
     };
   }
 
-  private async writeLocalProfile(profile: RemoteProfile): Promise<void> {
+  private async writeLocalProfile(profile: ProfileSnapshot): Promise<void> {
     await this.local.saveProgression(profile.progression);
     if (profile.onboarding) {
       await this.local.saveOnboarding(profile.onboarding);
@@ -148,7 +182,7 @@ export class SyncingRepository implements Repository {
 const FAILED = Symbol('remote call failed');
 
 /** Merge two profiles, favouring the side that is further along. */
-function mergeProfiles(local: RemoteProfile, remote: RemoteProfile): RemoteProfile {
+function mergeProfiles(local: ProfileSnapshot, remote: ProfileSnapshot): ProfileSnapshot {
   return {
     progression:
       remote.progression.xpTotal > local.progression.xpTotal

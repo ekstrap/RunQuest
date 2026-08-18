@@ -12,8 +12,11 @@ type AuthStatus = 'loading' | 'ready';
 interface AuthContextValue {
   /** The signed-in user, or null for an anonymous ("Just run") user. */
   user: AuthUser | null;
-  status: AuthStatus;
-  /** True once the initial session read has completed. */
+  /**
+   * True once the initial session read has completed. Until then `user` is not
+   * yet meaningful — consumers that gate on account state must wait, or a
+   * signed-in user would briefly be treated as anonymous.
+   */
   isReady: boolean;
   /** Whether this build can complete sign-in with the given provider. */
   isProviderAvailable(provider: AuthProviderId): boolean;
@@ -68,7 +71,6 @@ export function AuthProvider({ children, client }: AuthProviderProps) {
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
-      status,
       isReady: status === 'ready',
       isProviderAvailable: (provider) => client.isProviderAvailable(provider),
       signIn: async (provider) => {

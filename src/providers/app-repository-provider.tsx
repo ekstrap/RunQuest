@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type { Repository } from '@/src/data/repository';
 import type { RemoteStore } from '@/src/data/remote-store';
@@ -37,39 +37,52 @@ export function AppRepositoryProvider({
 }: AppRepositoryProviderProps) {
   const { user, isReady } = useAuth();
 
-  const repository = useMemo<Repository>(() => {
-    if (!user) {
-      return local;
+  // createRemote is an injection point, not reactive state: only *who is signed
+  // in* should rebuild the repository. Holding it in a ref means a parent that
+  // re-renders with an inline factory can't retrigger a whole re-sync.
+  const createRemoteRef = useRef(createRemote);
+  createRemoteRef.current = createRemote;
+
+  // Built together so the component never has to downcast to reach hydrate():
+  // it stays bound to the Repository interface, and `sync` is a plain callback
+  // that is simply a no-op when there's no cloud to sync with.
+  const { repository, sync } = useMemo<{ repository: Repository; sync: () => Promise<void> }>(() => {
+    const remote = user ? createRemoteRef.current() : null;
+    if (!user || !remote) {
+      return { repository: local, sync: async () => {} };
     }
-    const remote = createRemote();
-    return remote ? new SyncingRepository(local, remote, user.id) : local;
-    // createRemote is a stable factory from the caller; re-running on identity
-    // change is the point.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const syncing = new SyncingRepository(local, remote, user.id);
+    return { repository: syncing, sync: () => syncing.hydrate() };
   }, [local, user]);
 
-  // Gate rendering until the first sync has been attempted, so a signed-in user
-  // on a reinstalled phone never sees "level 1, no runs" before their real
-  // history arrives. hydrate() resolves even offline, so this can't hang.
-  const [hydrated, setHydrated] = useState(false);
+  // Gate the *first* render until the initial sync has been attempted, so a
+  // signed-in user on a reinstalled phone never sees "level 1, no runs" before
+  // their real history arrives. hydrate() resolves even offline, so this can't
+  // hang. Later re-syncs (e.g. signing in mid-session) keep the current screen
+  // on-screen instead of blanking the app while they run.
+  const [ready, setReady] = useState(false);
+  const hasRendered = useRef(false);
   useEffect(() => {
-    let active = true;
-    if (!(repository instanceof SyncingRepository)) {
-      setHydrated(true);
+    // Wait for auth to settle first. Syncing before we know who is signed in
+    // would run against the anonymous local repository and then count as a
+    // completed first sync, letting the app render local-only data to a user
+    // whose real history is still on its way.
+    if (!isReady) {
       return;
     }
-    setHydrated(false);
-    repository.hydrate().then(() => {
+    let active = true;
+    sync().then(() => {
       if (active) {
-        setHydrated(true);
+        hasRendered.current = true;
+        setReady(true);
       }
     });
     return () => {
       active = false;
     };
-  }, [repository]);
+  }, [isReady, sync]);
 
-  if (!isReady || !hydrated) {
+  if (!(ready || hasRendered.current)) {
     return null;
   }
 

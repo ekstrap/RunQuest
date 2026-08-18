@@ -1,5 +1,4 @@
 import { Stack } from 'expo-router';
-import { useMemo } from 'react';
 
 import { localOnlyAuthClient } from '@/src/auth/local-only-auth-client';
 import { SupabaseAuthClient } from '@/src/auth/supabase-auth-client';
@@ -37,11 +36,9 @@ function createRemoteStore() {
  * boundary) so any screen can read through those injected interfaces.
  */
 export default function RootLayout() {
-  const createRemote = useMemo(() => createRemoteStore, []);
-
   return (
     <AuthProvider client={authClient}>
-      <AppRepositoryProvider local={localRepository} createRemote={createRemote}>
+      <AppRepositoryProvider local={localRepository} createRemote={createRemoteStore}>
         <LocationProvider source={expoLocationSource}>
           <CuePlayerProvider player={expoCuePlayer}>
             <Stack>

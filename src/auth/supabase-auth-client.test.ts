@@ -5,7 +5,7 @@ import { SupabaseAuthClient, type SupabaseAuthApi } from './supabase-auth-client
 /** A stub of the narrow slice of supabase-js's auth API the client uses. */
 function fakeAuthApi(overrides: Partial<SupabaseAuthApi> = {}): SupabaseAuthApi {
   return {
-    getUser: jest.fn(async () => ({ data: { user: null }, error: null })),
+    getSession: jest.fn(async () => ({ data: { session: null }, error: null })),
     signInWithIdToken: jest.fn(async () => ({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -48,6 +48,25 @@ describe('SupabaseAuthClient', () => {
     });
   });
 
+  describe('offline', () => {
+    it('still recognises a signed-in user from the stored session', async () => {
+      // getSession reads local storage; it must not need the network. A signed-in
+      // user launching with no signal must not be demoted to anonymous.
+      const auth = fakeAuthApi({
+        getSession: jest.fn(async () => ({
+          data: { session: { user: { id: 'user-3', app_metadata: { provider: 'google' } } } },
+          error: null,
+        })),
+      });
+      const client = new SupabaseAuthClient(auth);
+
+      expect(await client.getCurrentUser()).toEqual<AuthUser>({
+        id: 'user-3',
+        provider: 'google',
+      });
+    });
+  });
+
   describe('with a configured identity-token provider', () => {
     it('exchanges the provider identity token for a Supabase session', async () => {
       const auth = fakeAuthApi();
@@ -78,8 +97,8 @@ describe('SupabaseAuthClient', () => {
 
   it('reports the restored user when a session already exists', async () => {
     const auth = fakeAuthApi({
-      getUser: jest.fn(async () => ({
-        data: { user: { id: 'user-7', app_metadata: { provider: 'apple' } } },
+      getSession: jest.fn(async () => ({
+        data: { session: { user: { id: 'user-7', app_metadata: { provider: 'apple' } } } },
         error: null,
       })),
     });
@@ -90,7 +109,10 @@ describe('SupabaseAuthClient', () => {
 
   it('reports a null provider when the session does not name one', async () => {
     const auth = fakeAuthApi({
-      getUser: jest.fn(async () => ({ data: { user: { id: 'user-9' } }, error: null })),
+      getSession: jest.fn(async () => ({
+        data: { session: { user: { id: 'user-9' } } },
+        error: null,
+      })),
     });
     const client = new SupabaseAuthClient(auth);
 

@@ -6,11 +6,11 @@ import { AuthProvider, useAuth } from '@/src/providers/auth-provider';
 
 /** A probe component that renders the auth state the provider exposes. */
 function AuthProbe() {
-  const { user, status, signIn, signOut } = useAuth();
+  const { user, isReady, signIn, signOut } = useAuth();
 
   return (
     <>
-      <Text>{status === 'loading' ? 'Loading' : (user?.provider ?? 'Anonymous')}</Text>
+      <Text>{isReady ? (user?.provider ?? 'Anonymous') : 'Loading'}</Text>
       <Pressable onPress={() => signIn('apple')}>
         <Text>Sign in</Text>
       </Pressable>

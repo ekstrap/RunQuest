@@ -25,6 +25,18 @@ function ProgressionProbe() {
   return <Text>{xp === null ? 'Writing' : `XP ${xp}`}</Text>;
 }
 
+/** Counts mounts, to prove the tree isn't torn down and rebuilt. */
+function makeMountCountingProbe() {
+  const mounts = { count: 0 };
+  function MountProbe() {
+    useEffect(() => {
+      mounts.count += 1;
+    }, []);
+    return <Text>Mounted</Text>;
+  }
+  return { mounts, MountProbe };
+}
+
 /** Only reads — used to prove what the first render already knows. */
 function ReadOnlyProbe() {
   const repository = useRepository();
@@ -115,6 +127,23 @@ describe('AppRepositoryProvider', () => {
     await waitFor(async () =>
       expect(await remote.fetchSessions('fake-user-1')).toHaveLength(1),
     );
+  });
+
+  it('keeps the app on screen while signing in mid-session', async () => {
+    const client = new FakeAuthClient();
+    const { mounts, MountProbe } = makeMountCountingProbe();
+    renderApp(client, new InMemoryRemoteStore(), MountProbe);
+    await screen.findByText('Mounted');
+    expect(mounts.count).toBe(1);
+
+    await act(async () => {
+      await client.signIn('apple');
+    });
+
+    // Blanking the tree to re-sync would unmount and remount everything, which
+    // the user sees as the app vanishing mid-tap.
+    expect(screen.getByText('Mounted')).toBeTruthy();
+    expect(mounts.count).toBe(1);
   });
 
   it('falls back to local-only when Supabase is not configured', async () => {

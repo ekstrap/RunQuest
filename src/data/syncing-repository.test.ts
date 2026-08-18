@@ -131,6 +131,43 @@ describe('SyncingRepository', () => {
       expect((await remote.fetchProfile(USER))?.progression).toEqual(expected);
     });
 
+    it('never merges another account’s leftover data into this one', async () => {
+      const remote = new InMemoryRemoteStore();
+      const local = new LocalRepository(new InMemoryKeyValueStore());
+      // A previous user of this phone left their progress behind.
+      await local.saveProgression({ xpTotal: 5_000, level: 20 });
+      await local.saveSession(runA);
+      await local.setDataOwner('someone-else');
+      const repository = new SyncingRepository(local, remote, USER);
+
+      await repository.hydrate();
+
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 0, level: 1 });
+      expect(await repository.getSessions()).toEqual([]);
+      expect(await remote.fetchSessions(USER)).toEqual([]);
+      expect((await remote.fetchProfile(USER))?.progression).toEqual({ xpTotal: 0, level: 1 });
+    });
+
+    it('claims the device for the signed-in account', async () => {
+      const { repository } = makeSyncing();
+
+      await repository.hydrate();
+
+      expect(await repository.getDataOwner()).toBe(USER);
+    });
+
+    it('keeps the same account’s own data across sign-ins', async () => {
+      const remote = new InMemoryRemoteStore();
+      const local = new LocalRepository(new InMemoryKeyValueStore());
+      await local.saveProgression({ xpTotal: 700, level: 7 });
+      await local.setDataOwner(USER);
+      const repository = new SyncingRepository(local, remote, USER);
+
+      await repository.hydrate();
+
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 700, level: 7 });
+    });
+
     it('leaves local data untouched when the cloud is unreachable', async () => {
       const offline = new InMemoryRemoteStore();
       jest.spyOn(offline, 'fetchProfile').mockRejectedValue(new Error('network down'));

@@ -6,12 +6,15 @@ import type {
 } from '@/src/domain/types';
 
 /**
- * The cloud-side profile row: everything about a user that isn't a session.
+ * A user's profile: everything about them that isn't a session — progression,
+ * onboarding selections, calibration rung. Used on both sides of sync (it is
+ * what the device holds as much as what the cloud stores), which is why it is
+ * a snapshot rather than a "remote" type.
  * Progression is always present (a fresh account starts at level 1); onboarding
  * and calibration are null until the user has been through onboarding / had a
  * rung written.
  */
-export interface RemoteProfile {
+export interface ProfileSnapshot {
   progression: ProgressionState;
   onboarding: OnboardingState | null;
   calibration: CalibrationState | null;
@@ -30,10 +33,10 @@ export interface RemoteProfile {
  */
 export interface RemoteStore {
   /** Read a user's profile row, or null when the account has no row yet. */
-  fetchProfile(userId: string): Promise<RemoteProfile | null>;
+  fetchProfile(userId: string): Promise<ProfileSnapshot | null>;
 
   /** Create or update the user's profile row with the given fields. */
-  saveProfile(userId: string, profile: RemoteProfile): Promise<void>;
+  saveProfile(userId: string, profile: ProfileSnapshot): Promise<void>;
 
   /** Read all of a user's session records, oldest first. */
   fetchSessions(userId: string): Promise<SessionRecord[]>;
@@ -47,7 +50,7 @@ export interface RemoteStore {
 }
 
 /** A brand-new account: level 1, no XP, nothing onboarded yet. */
-export const EMPTY_REMOTE_PROFILE: RemoteProfile = {
+export const EMPTY_PROFILE: ProfileSnapshot = {
   progression: { xpTotal: 0, level: 1 },
   onboarding: null,
   calibration: null,
@@ -55,14 +58,14 @@ export const EMPTY_REMOTE_PROFILE: RemoteProfile = {
 
 /** In-process RemoteStore for tests — the cloud, without the cloud. */
 export class InMemoryRemoteStore implements RemoteStore {
-  private readonly profiles = new Map<string, RemoteProfile>();
+  private readonly profiles = new Map<string, ProfileSnapshot>();
   private readonly sessions = new Map<string, SessionRecord[]>();
 
-  async fetchProfile(userId: string): Promise<RemoteProfile | null> {
+  async fetchProfile(userId: string): Promise<ProfileSnapshot | null> {
     return this.profiles.get(userId) ?? null;
   }
 
-  async saveProfile(userId: string, profile: RemoteProfile): Promise<void> {
+  async saveProfile(userId: string, profile: ProfileSnapshot): Promise<void> {
     this.profiles.set(userId, profile);
   }
 

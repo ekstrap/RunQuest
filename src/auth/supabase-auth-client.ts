@@ -28,7 +28,13 @@ interface SupabaseResult<T> {
  * how much of the SDK we depend on.
  */
 export interface SupabaseAuthApi {
-  getUser(): Promise<SupabaseResult<{ user: SupabaseUser | null }>>;
+  /**
+   * Reads the *stored* session. Deliberately not `getUser()`, which validates
+   * against the server: a signed-in user launching the app with no signal must
+   * still be recognised as signed in, or they'd silently drop to anonymous
+   * local-only mode and be told to create an account they already have.
+   */
+  getSession(): Promise<SupabaseResult<{ session: { user: SupabaseUser } | null }>>;
   signInWithIdToken(credentials: {
     provider: AuthProviderId;
     token: string;
@@ -73,13 +79,13 @@ export class SupabaseAuthClient implements AuthClient {
   }
 
   async getCurrentUser(): Promise<AuthUser | null> {
-    const { data, error } = await this.auth.getUser();
-    // No session is the normal anonymous case, not an exceptional one: an
-    // expired or missing token must leave the user running, never blocked.
-    if (error || !data.user) {
+    const { data, error } = await this.auth.getSession();
+    // No session is the normal anonymous case, not an exceptional one: a
+    // missing or unreadable session must leave the user running, never blocked.
+    if (error || !data.session) {
       return null;
     }
-    return toAuthUser(data.user);
+    return toAuthUser(data.session.user);
   }
 
   async signIn(provider: AuthProviderId): Promise<AuthUser> {

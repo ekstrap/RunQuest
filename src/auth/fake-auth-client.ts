@@ -5,8 +5,6 @@ import {
   type AuthUser,
 } from './auth-client';
 
-let nextId = 0;
-
 /**
  * In-process AuthClient for tests and for running the account screens without a
  * network. Sign-in succeeds instantly and mints a local user id.
@@ -18,6 +16,8 @@ let nextId = 0;
 export class FakeAuthClient implements AuthClient {
   private user: AuthUser | null;
   private readonly listeners = new Set<(user: AuthUser | null) => void>();
+  /** Per-instance, so ids can't leak between tests. */
+  private nextId = 0;
 
   constructor(
     private readonly availableProviders: AuthProviderId[] = ['apple', 'google'],
@@ -38,7 +38,7 @@ export class FakeAuthClient implements AuthClient {
     if (!this.isProviderAvailable(provider)) {
       throw new ProviderNotConfiguredError(provider);
     }
-    this.user = { id: `fake-user-${(nextId += 1)}`, provider };
+    this.user = { id: `fake-user-${(this.nextId += 1)}`, provider };
     this.listeners.forEach((listener) => listener(this.user));
     return this.user;
   }

@@ -40,7 +40,16 @@ consistency).
 Consequence: the app behaves identically offline, and "signed in" is strictly
 additive.
 
-### 2. `hydrate()` is the reconciliation point, and the merge is non-destructive
+### 2. Stored data knows which account it belongs to
+
+A phone can be used by more than one person. `Repository` carries a data owner
+(`getDataOwner` / `setDataOwner`), and `hydrate()` discards the device copy
+before merging when it belonged to a *different* account — otherwise signing in
+would hand a stranger's XP and run history to whoever signs in next, with no way
+back (the merge keeps the larger XP). Data with **no** owner is anonymous "Just
+run" data and *is* adopted: that's the same person choosing to make an account.
+
+### 3. `hydrate()` is the reconciliation point, and the merge is non-destructive
 
 Called on launch while signed in, and right after signing in. It merges both
 directions:
@@ -60,14 +69,20 @@ carries an anonymous user's existing history into a new account, so choosing
 Rejected: last-write-wins on a timestamp. It is simpler but can silently discard
 runs recorded offline, which is precisely the data we most need to keep.
 
-### 3. Rendering waits for the first hydrate, but never for the network
+### 4. Rendering waits for the first hydrate, but never for the network
 
 `AppRepositoryProvider` renders nothing until the initial sync attempt settles,
 so a signed-in user on a reinstalled phone never sees "level 1, no runs" before
 their real history arrives. `hydrate()` resolves even when every call fails, so
-this can't hang.
+this can't hang. Only the *first* sync gates rendering — signing in mid-session
+re-syncs behind the current screen rather than blanking the app.
 
-### 4. Auth is split into two boundaries, and only one needs credentials
+Sign-in state itself is read from the *stored* session (`getSession`), never
+`getUser()`, which validates against the server: a signed-in user launching with
+no signal must stay signed in, not be told to create an account they already
+have.
+
+### 5. Auth is split into two boundaries, and only one needs credentials
 
 - `AuthClient` — sign-in state and operations. `SupabaseAuthClient` implements
   it over `signInWithIdToken`.
@@ -78,9 +93,9 @@ Only the second needs real developer credentials and a native build. The shipped
 default is `unconfiguredIdentityTokenProvider`, which reports both providers
 unavailable, so the account flow is complete and tested today while sign-in
 itself stays honestly switched off. Turning it on is one file plus configuration
-(tracked separately) — no rework of anything built on top.
+(issue #22) — no rework of anything built on top.
 
-### 5. Contract testing, not integration testing, keeps implementations honest
+### 6. Contract testing, not integration testing, keeps implementations honest
 
 `describeRepositoryContract` is one suite run against every `Repository`
 implementation — in-memory, local, and syncing. The Supabase pieces

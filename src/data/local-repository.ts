@@ -20,6 +20,7 @@ const KEYS = {
   onboarding: 'runquest:onboarding',
   calibration: 'runquest:calibration',
   sessions: 'runquest:sessions',
+  dataOwner: 'runquest:data-owner',
 } as const;
 
 /**
@@ -93,5 +94,21 @@ export class LocalRepository implements Repository {
   async getSessions(): Promise<SessionRecord[]> {
     const sessions = await this.read<SessionRecord[]>(KEYS.sessions);
     return Array.isArray(sessions) ? sessions : [];
+  }
+
+  async getDataOwner(): Promise<string | null> {
+    return this.read<string>(KEYS.dataOwner);
+  }
+
+  async setDataOwner(userId: string | null): Promise<void> {
+    if (userId === null) {
+      await this.store.removeItem(KEYS.dataOwner);
+      return;
+    }
+    await this.write(KEYS.dataOwner, userId);
+  }
+
+  async clear(): Promise<void> {
+    await Promise.all(Object.values(KEYS).map((key) => this.store.removeItem(key)));
   }
 }

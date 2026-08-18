@@ -113,6 +113,46 @@ export function describeRepositoryContract(
       expect(await repository.getSessions()).toEqual(replacement);
     });
 
+    it('treats stored data as anonymous until an account claims it', async () => {
+      const repository = await makeRepository();
+
+      expect(await repository.getDataOwner()).toBeNull();
+    });
+
+    it('reads back the account that claimed the stored data', async () => {
+      const repository = await makeRepository();
+
+      await repository.setDataOwner('user-1');
+
+      expect(await repository.getDataOwner()).toBe('user-1');
+    });
+
+    it('returns to anonymous when the owner is cleared', async () => {
+      const repository = await makeRepository();
+      await repository.setDataOwner('user-1');
+
+      await repository.setDataOwner(null);
+
+      expect(await repository.getDataOwner()).toBeNull();
+    });
+
+    it('discards everything, including the owner, on clear', async () => {
+      const repository = await makeRepository();
+      await repository.saveProgression({ xpTotal: 500, level: 6 });
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      await repository.saveCalibration({ step: 3 });
+      await repository.saveSession(session);
+      await repository.setDataOwner('user-1');
+
+      await repository.clear();
+
+      expect(await repository.getProgressionState()).toEqual({ xpTotal: 0, level: 1 });
+      expect(await repository.getOnboardingState()).toBeNull();
+      expect(await repository.getCalibrationState()).toBeNull();
+      expect(await repository.getSessions()).toEqual([]);
+      expect(await repository.getDataOwner()).toBeNull();
+    });
+
     it('does not let a caller mutate stored sessions through the returned array', async () => {
       const repository = await makeRepository();
       await repository.saveSession(session);

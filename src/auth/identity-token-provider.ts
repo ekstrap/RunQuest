@@ -23,7 +23,7 @@ export interface IdentityToken {
  * the account flow is complete and tested today, and turning sign-in on later is
  * a one-file change plus configuration — no rework of the flow around it.
  *
- * To enable sign-in for real (tracked as a follow-up issue):
+ * To enable sign-in for real (tracked as issue #22):
  *  1. Add the native SDKs — `expo-apple-authentication` and
  *     `@react-native-google-signin/google-signin` — and their config plugins.
  *  2. Create the Apple Service ID / key and the Google OAuth client IDs, and
