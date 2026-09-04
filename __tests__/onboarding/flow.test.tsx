@@ -1,7 +1,7 @@
 import { act, fireEvent, renderRouter, screen } from 'expo-router/testing-library';
 
 // Best-effort end-to-end proof of AC1: the four onboarding screens are navigable
-// in order, one tap per choice. Drives the *real* route files through Expo
+// in order, one tap per choice, ending in the deferred account prompt. Drives the *real* route files through Expo
 // Router (the root _layout supplies the repository), rather than mocking the
 // router as the per-screen tests do. If this wiring ever proves flaky under
 // jest-expo, the per-screen router.push assertions already establish the order.
@@ -22,6 +22,8 @@ describe('onboarding flow', () => {
         'run/_layout': require('@/app/run/_layout').default,
         'run/setup': require('@/app/run/setup').default,
         'run/active': require('@/app/run/active').default,
+        // Likewise for the sign-in route the deferred account prompt can reach.
+        'sign-in': require('@/app/sign-in').default,
       },
       { initialUrl: '/welcome' },
     );
@@ -34,6 +36,12 @@ describe('onboarding flow', () => {
 
     await act(async () => {
       fireEvent.press(screen.getByText('Start'));
+    });
+
+    // Start raises the deferred account prompt (DESIGN.md §3.12) before the run.
+    // "Just run" is the no-account path — it must reach home like any other.
+    await act(async () => {
+      fireEvent.press(screen.getByText('Just run'));
     });
 
     expect(await screen.findByText('RunQuest')).toBeTruthy();

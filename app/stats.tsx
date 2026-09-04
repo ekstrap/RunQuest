@@ -1,5 +1,9 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+
+import { PROVIDER_LABELS } from '@/src/auth/auth-client';
+import { useAuth } from '@/src/providers/auth-provider';
 
 import { initialCalibration } from '@/src/domain/calibration';
 import { formatDistance } from '@/src/domain/distance';
@@ -18,6 +22,8 @@ import { useRepository } from '@/src/providers/repository-provider';
  * home screen. Nothing on this screen may read as failure, loss, or a score.
  */
 export default function StatsScreen() {
+  const router = useRouter();
+  const { user, signOut } = useAuth();
   const repository = useRepository();
   const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
   const [sessions, setSessions] = useState<SessionRecord[] | null>(null);
@@ -76,6 +82,32 @@ export default function StatsScreen() {
       <View style={styles.section} testID="ability-narrative">
         <Text style={styles.sectionLabel}>Your journey</Text>
         <Text style={styles.narrativeText}>{narrative.text}</Text>
+      </View>
+
+      <View style={styles.section} testID="account">
+        <Text style={styles.sectionLabel}>Account</Text>
+        {user ? (
+          <>
+            <Text style={styles.accountText}>
+              {user.provider
+                ? `Signed in with ${PROVIDER_LABELS[user.provider]}. Your progress is backed up.`
+                : 'Signed in. Your progress is backed up.'}
+            </Text>
+            <Pressable onPress={() => signOut()}>
+              <Text style={styles.accountAction}>Sign out</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Text style={styles.accountText}>
+              Your progress is saved on this phone. An account backs it up, so a new phone picks
+              up where you left off.
+            </Text>
+            <Pressable onPress={() => router.push('/sign-in')}>
+              <Text style={styles.accountAction}>Create account</Text>
+            </Pressable>
+          </>
+        )}
       </View>
 
       <View style={styles.section} testID="run-history">
@@ -149,6 +181,17 @@ const styles = StyleSheet.create({
   narrativeText: {
     fontSize: 16,
     lineHeight: 24,
+  },
+  accountText: {
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 4,
+  },
+  accountAction: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563eb',
+    marginTop: 12,
   },
   emptyHistory: {
     fontSize: 15,

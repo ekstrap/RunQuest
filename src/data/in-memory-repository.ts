@@ -22,6 +22,8 @@ export class InMemoryRepository implements Repository {
   private calibration: CalibrationState | null = null;
   /** Completed sessions, oldest first. */
   private sessions: SessionRecord[] = [];
+  /** null while the data is anonymous, i.e. claimed by no account. */
+  private dataOwner: string | null = null;
 
   constructor(initial: ProgressionState = INITIAL_PROGRESSION) {
     this.progression = initial;
@@ -58,5 +60,25 @@ export class InMemoryRepository implements Repository {
   async getSessions(): Promise<SessionRecord[]> {
     // Return a copy so callers can't mutate our internal state.
     return [...this.sessions];
+  }
+
+  async replaceSessions(records: SessionRecord[]): Promise<void> {
+    this.sessions = [...records];
+  }
+
+  async getDataOwner(): Promise<string | null> {
+    return this.dataOwner;
+  }
+
+  async setDataOwner(userId: string | null): Promise<void> {
+    this.dataOwner = userId;
+  }
+
+  async clear(): Promise<void> {
+    this.progression = INITIAL_PROGRESSION;
+    this.onboarding = null;
+    this.calibration = null;
+    this.sessions = [];
+    this.dataOwner = null;
   }
 }

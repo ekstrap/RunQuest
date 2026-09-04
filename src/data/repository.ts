@@ -48,4 +48,31 @@ export interface Repository {
 
   /** Read all completed session records, oldest first. */
   getSessions(): Promise<SessionRecord[]>;
+
+  /**
+   * Replace the whole session history with the given records, oldest first.
+   * Used by cloud sync to write back the reconciled union of device and cloud
+   * history; ordinary app flow only ever appends via `saveSession`.
+   */
+  replaceSessions(records: SessionRecord[]): Promise<void>;
+
+  /**
+   * The account id this stored data belongs to, or null when it is anonymous
+   * data that no account has claimed yet.
+   *
+   * A phone can be used by more than one person. Without this, signing in would
+   * merge whatever the previous account left behind into the new one — so the
+   * stored data has to know whose it is.
+   */
+  getDataOwner(): Promise<string | null>;
+
+  /** Record which account the stored data belongs to. */
+  setDataOwner(userId: string | null): Promise<void>;
+
+  /**
+   * Discard all stored data, including the owner. Used only when this device's
+   * data belongs to a *different* account than the one signing in; it is never
+   * part of ordinary app flow.
+   */
+  clear(): Promise<void>;
 }

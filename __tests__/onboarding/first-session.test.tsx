@@ -1,20 +1,29 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import FirstSessionScreen from '@/app/(onboarding)/first-session';
+import { FakeAuthClient } from '@/src/auth/fake-auth-client';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { AuthProvider } from '@/src/providers/auth-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
 const mockReplace = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: mockReplace, push: jest.fn() }),
   useLocalSearchParams: () => ({ bracket: 'never-run', weeklyCommitment: '2' }),
 }));
 
+/**
+ * Renders as an already-signed-in user, so Start goes straight to the run. The
+ * anonymous path — where Start raises the deferred account prompt instead — is
+ * covered in account-prompt.test.tsx.
+ */
 function renderWithRepository(repository: InMemoryRepository) {
   return render(
-    <RepositoryProvider repository={repository}>
-      <FirstSessionScreen />
-    </RepositoryProvider>,
+    <AuthProvider client={new FakeAuthClient(['apple'], { id: 'user-1', provider: 'apple' })}>
+      <RepositoryProvider repository={repository}>
+        <FirstSessionScreen />
+      </RepositoryProvider>
+    </AuthProvider>,
   );
 }
 
@@ -33,6 +42,8 @@ describe('FirstSessionScreen', () => {
     const repository = new InMemoryRepository();
     const saveOnboarding = jest.spyOn(repository, 'saveOnboarding');
     renderWithRepository(repository);
+    // Let the provider settle on the restored session before pressing Start.
+    await waitFor(() => expect(screen.getByText('Start')).toBeTruthy());
 
     fireEvent.press(screen.getByText('Start'));
 
