@@ -18,6 +18,13 @@ export interface WeekProgress {
   isComplete: boolean;
 }
 
+/** Epoch ms of 00:00 local time on the day containing `timestamp`. */
+export function startOfDay(timestamp: number): number {
+  const date = new Date(timestamp);
+  date.setHours(0, 0, 0, 0);
+  return date.getTime();
+}
+
 /** Epoch ms of Monday 00:00 local time for the week containing `timestamp`. */
 export function startOfWeek(timestamp: number): number {
   const date = new Date(timestamp);

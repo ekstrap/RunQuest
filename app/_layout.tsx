@@ -10,6 +10,7 @@ import { AppRepositoryProvider } from '@/src/providers/app-repository-provider';
 import { AuthProvider } from '@/src/providers/auth-provider';
 import { CuePlayerProvider } from '@/src/providers/cue-player-provider';
 import { LocationProvider } from '@/src/providers/location-provider';
+import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
 import { expoCuePlayer } from '@/src/run/expo-cue-player';
 import { expoLocationSource } from '@/src/run/expo-location-source';
 
@@ -32,8 +33,10 @@ function createRemoteStore() {
  * Root navigation shell. A single Stack. The whole tree is wrapped in
  * AuthProvider (the sign-in boundary), AppRepositoryProvider (which picks
  * local-only or cloud-syncing storage based on whether anyone is signed in),
- * LocationProvider (the GPS boundary), and CuePlayerProvider (the audio
- * boundary) so any screen can read through those injected interfaces.
+ * LocationProvider (the GPS boundary), CuePlayerProvider (the audio boundary),
+ * and NotificationPermissionsProvider (the OS notification-permission boundary,
+ * whose default never claims a grant until issue #13 wires expo-notifications)
+ * so any screen can read through those injected interfaces.
  */
 export default function RootLayout() {
   return (
@@ -41,14 +44,17 @@ export default function RootLayout() {
       <AppRepositoryProvider local={localRepository} createRemote={createRemoteStore}>
         <LocationProvider source={expoLocationSource}>
           <CuePlayerProvider player={expoCuePlayer}>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-              <Stack.Screen name="home" options={{ title: 'RunQuest' }} />
-              <Stack.Screen name="run" options={{ headerShown: false }} />
-              <Stack.Screen name="stats" options={{ title: 'Your progress' }} />
-              <Stack.Screen name="sign-in" options={{ title: 'Create account' }} />
-            </Stack>
+            <NotificationPermissionsProvider>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+                <Stack.Screen name="home" options={{ title: 'RunQuest' }} />
+                <Stack.Screen name="run" options={{ headerShown: false }} />
+                <Stack.Screen name="stats" options={{ title: 'Your progress' }} />
+                <Stack.Screen name="settings" options={{ title: 'Notifications' }} />
+                <Stack.Screen name="sign-in" options={{ title: 'Create account' }} />
+              </Stack>
+            </NotificationPermissionsProvider>
           </CuePlayerProvider>
         </LocationProvider>
       </AppRepositoryProvider>

@@ -1,4 +1,4 @@
-import type { SessionRecord } from '@/src/domain/types';
+import type { NotificationSettings, SessionRecord } from '@/src/domain/types';
 import type { Repository } from './repository';
 
 /**
@@ -113,6 +113,25 @@ export function describeRepositoryContract(
       expect(await repository.getSessions()).toEqual(replacement);
     });
 
+    it('has no notification settings until they are saved', async () => {
+      const repository = await makeRepository();
+
+      expect(await repository.getNotificationSettings()).toBeNull();
+    });
+
+    it('reads back the notification settings that were saved', async () => {
+      const repository = await makeRepository();
+      const settings: NotificationSettings = {
+        prePrompt: 'accepted',
+        osPermission: 'granted',
+        categories: { reminder: true, celebration: true, 're-engagement': false },
+      };
+
+      await repository.saveNotificationSettings(settings);
+
+      expect(await repository.getNotificationSettings()).toEqual(settings);
+    });
+
     it('treats stored data as anonymous until an account claims it', async () => {
       const repository = await makeRepository();
 
@@ -143,6 +162,11 @@ export function describeRepositoryContract(
       await repository.saveCalibration({ step: 3 });
       await repository.saveSession(session);
       await repository.setDataOwner('user-1');
+      await repository.saveNotificationSettings({
+        prePrompt: 'accepted',
+        osPermission: 'granted',
+        categories: { reminder: true, celebration: true, 're-engagement': true },
+      });
 
       await repository.clear();
 
@@ -151,6 +175,7 @@ export function describeRepositoryContract(
       expect(await repository.getCalibrationState()).toBeNull();
       expect(await repository.getSessions()).toEqual([]);
       expect(await repository.getDataOwner()).toBeNull();
+      expect(await repository.getNotificationSettings()).toBeNull();
     });
 
     it('does not let a caller mutate stored sessions through the returned array', async () => {
