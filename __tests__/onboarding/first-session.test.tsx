@@ -4,6 +4,7 @@ import FirstSessionScreen from '@/app/(onboarding)/first-session';
 import { FakeAuthClient } from '@/src/auth/fake-auth-client';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
 import { AuthProvider } from '@/src/providers/auth-provider';
+import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
 const mockReplace = jest.fn();
@@ -21,7 +22,9 @@ function renderWithRepository(repository: InMemoryRepository) {
   return render(
     <AuthProvider client={new FakeAuthClient(['apple'], { id: 'user-1', provider: 'apple' })}>
       <RepositoryProvider repository={repository}>
-        <FirstSessionScreen />
+        <NotificationPermissionsProvider>
+          <FirstSessionScreen />
+        </NotificationPermissionsProvider>
       </RepositoryProvider>
     </AuthProvider>,
   );
@@ -40,6 +43,13 @@ describe('FirstSessionScreen', () => {
 
   it('persists the typed onboarding selections, then goes home, on Start', async () => {
     const repository = new InMemoryRepository();
+    // The notification pre-prompt (§3.21.2) is already answered, so Start heads
+    // straight home; that ask has its own test file.
+    await repository.saveNotificationSettings({
+      prePrompt: 'not-now',
+      osPermission: 'undetermined',
+      categories: { reminder: true, celebration: true, 're-engagement': true },
+    });
     const saveOnboarding = jest.spyOn(repository, 'saveOnboarding');
     renderWithRepository(repository);
     // Let the provider settle on the restored session before pressing Start.

@@ -1,5 +1,6 @@
 import type {
   CalibrationState,
+  NotificationSettings,
   OnboardingState,
   ProgressionState,
   SessionRecord,
@@ -46,6 +47,22 @@ export class SyncingRepository implements Repository {
 
   getDataOwner(): Promise<string | null> {
     return this.local.getDataOwner();
+  }
+
+  // ---- device-scoped: never mirrored -------------------------------------
+
+  /**
+   * Notification settings stay on the phone, in both directions. OS permission
+   * is granted to an app *on a device*, so syncing it would tell a new phone it
+   * may notify when it has never asked — and would silently move one device's
+   * toggles onto another.
+   */
+  getNotificationSettings(): Promise<NotificationSettings | null> {
+    return this.local.getNotificationSettings();
+  }
+
+  saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+    return this.local.saveNotificationSettings(settings);
   }
 
   // ---- writes: local first, cloud best-effort ----------------------------

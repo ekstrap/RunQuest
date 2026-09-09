@@ -98,3 +98,46 @@ export interface OnboardingState {
   bracket: Bracket;
   weeklyCommitment: WeeklyCommitment;
 }
+
+/**
+ * The three notification categories that ship in v1 (DESIGN.md §3.21.1).
+ * Deliberately closed: a category outside this union — anything whose purpose is
+ * loss aversion ("your streak ends in 4 hours") — is a *predatory notification*
+ * and is forbidden by the §3.18 hard rule. Tips are excluded from notifications
+ * in v1 (in-app only).
+ */
+export type NotificationCategory = 'reminder' | 'celebration' | 're-engagement';
+
+/**
+ * Per-category toggles, tunable in settings (§3.21.2). Opt-in itself is a
+ * *single* friendly ask — no category picker at that moment — so all three start
+ * on together and the user narrows them later if they want to.
+ */
+export type NotificationCategoryToggles = Record<NotificationCategory, boolean>;
+
+/**
+ * Where the user stands on notifications (DESIGN.md §3.21.2).
+ *
+ * `prePrompt` tracks *our own* in-app ask, which is mandatory and comes before
+ * the OS prompt: 'not-now' is a soft, re-askable decline that deliberately
+ * leaves the irreversible OS prompt unburned. `osPermission` is the last known
+ * answer from the OS itself.
+ *
+ * Device-scoped, not account-scoped: OS permission belongs to *this* phone, so
+ * these never travel through cloud sync.
+ */
+export interface NotificationSettings {
+  prePrompt: 'unasked' | 'not-now' | 'accepted';
+  osPermission: 'undetermined' | 'granted' | 'denied';
+  categories: NotificationCategoryToggles;
+}
+
+/**
+ * A fresh user: never asked, no OS permission, and — once they do opt in — all
+ * three categories on (single ask, §3.21.2).
+ */
+export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
+  prePrompt: 'unasked',
+  osPermission: 'undetermined',
+  categories: { reminder: true, celebration: true, 're-engagement': true },
+};

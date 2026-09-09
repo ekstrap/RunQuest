@@ -40,6 +40,20 @@ describe('SyncingRepository', () => {
       expect(await remote.fetchSessions(USER)).toEqual([runA]);
     });
 
+    it('keeps notification settings on the device — they never reach the cloud', async () => {
+      const { local, remote, repository } = makeSyncing();
+      const saveProfile = jest.spyOn(remote, 'saveProfile');
+
+      await repository.saveNotificationSettings({
+        prePrompt: 'accepted',
+        osPermission: 'granted',
+        categories: { reminder: true, celebration: true, 're-engagement': false },
+      });
+
+      expect(saveProfile).not.toHaveBeenCalled();
+      expect(await local.getNotificationSettings()).not.toBeNull();
+    });
+
     it('still saves locally when the cloud write fails, so a run is never lost', async () => {
       const offline = new InMemoryRemoteStore();
       jest.spyOn(offline, 'saveSessions').mockRejectedValue(new Error('network down'));

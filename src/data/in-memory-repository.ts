@@ -1,5 +1,6 @@
 import type {
   CalibrationState,
+  NotificationSettings,
   OnboardingState,
   ProgressionState,
   SessionRecord,
@@ -24,6 +25,8 @@ export class InMemoryRepository implements Repository {
   private sessions: SessionRecord[] = [];
   /** null while the data is anonymous, i.e. claimed by no account. */
   private dataOwner: string | null = null;
+  /** null until the notification pre-prompt has been answered (§3.21.2). */
+  private notificationSettings: NotificationSettings | null = null;
 
   constructor(initial: ProgressionState = INITIAL_PROGRESSION) {
     this.progression = initial;
@@ -66,6 +69,14 @@ export class InMemoryRepository implements Repository {
     this.sessions = [...records];
   }
 
+  async getNotificationSettings(): Promise<NotificationSettings | null> {
+    return this.notificationSettings;
+  }
+
+  async saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+    this.notificationSettings = settings;
+  }
+
   async getDataOwner(): Promise<string | null> {
     return this.dataOwner;
   }
@@ -80,5 +91,6 @@ export class InMemoryRepository implements Repository {
     this.calibration = null;
     this.sessions = [];
     this.dataOwner = null;
+    this.notificationSettings = null;
   }
 }

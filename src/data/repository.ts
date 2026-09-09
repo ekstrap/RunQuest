@@ -1,5 +1,6 @@
 import type {
   CalibrationState,
+  NotificationSettings,
   OnboardingState,
   ProgressionState,
   SessionRecord,
@@ -55,6 +56,20 @@ export interface Repository {
    * history; ordinary app flow only ever appends via `saveSession`.
    */
   replaceSessions(records: SessionRecord[]): Promise<void>;
+
+  /**
+   * Read the user's notification settings, or null when they have never been
+   * asked. Null means "fall back to DEFAULT_NOTIFICATION_SETTINGS" — the
+   * pre-prompt hasn't been shown yet (DESIGN.md §3.21.2).
+   */
+  getNotificationSettings(): Promise<NotificationSettings | null>;
+
+  /**
+   * Persist the notification settings (pre-prompt answer, last known OS
+   * permission, per-category toggles). Device-scoped: OS permission belongs to
+   * this phone, so these deliberately stay off the cloud-sync path.
+   */
+  saveNotificationSettings(settings: NotificationSettings): Promise<void>;
 
   /**
    * The account id this stored data belongs to, or null when it is anonymous

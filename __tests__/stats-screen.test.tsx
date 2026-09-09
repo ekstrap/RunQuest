@@ -138,6 +138,18 @@ describe('StatsScreen', () => {
   });
 });
 
+describe('StatsScreen notification settings', () => {
+  beforeEach(() => mockPush.mockClear());
+
+  it('routes to the per-category notification toggles (§3.21.2)', async () => {
+    renderStats(new InMemoryRepository());
+
+    fireEvent.press(await screen.findByText('Notification settings'));
+
+    expect(mockPush).toHaveBeenCalledWith('/settings');
+  });
+});
+
 describe('StatsScreen account section', () => {
   beforeEach(() => mockPush.mockClear());
 

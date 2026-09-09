@@ -1,5 +1,6 @@
 import type {
   CalibrationState,
+  NotificationSettings,
   OnboardingState,
   ProgressionState,
   SessionRecord,
@@ -20,6 +21,7 @@ const KEYS = {
   onboarding: 'runquest:onboarding',
   calibration: 'runquest:calibration',
   sessions: 'runquest:sessions',
+  notifications: 'runquest:notifications',
   dataOwner: 'runquest:data-owner',
 } as const;
 
@@ -94,6 +96,14 @@ export class LocalRepository implements Repository {
   async getSessions(): Promise<SessionRecord[]> {
     const sessions = await this.read<SessionRecord[]>(KEYS.sessions);
     return Array.isArray(sessions) ? sessions : [];
+  }
+
+  async getNotificationSettings(): Promise<NotificationSettings | null> {
+    return this.read<NotificationSettings>(KEYS.notifications);
+  }
+
+  async saveNotificationSettings(settings: NotificationSettings): Promise<void> {
+    await this.write(KEYS.notifications, settings);
   }
 
   async getDataOwner(): Promise<string | null> {
