@@ -1,4 +1,8 @@
-import type { NotificationSettings, SessionRecord } from '@/src/domain/types';
+import {
+  DEFAULT_REMINDER_TIME,
+  type NotificationSettings,
+  type SessionRecord,
+} from '@/src/domain/types';
 import type { Repository } from './repository';
 
 /**
@@ -125,6 +129,7 @@ export function describeRepositoryContract(
         prePrompt: 'accepted',
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': false },
+        reminderTime: DEFAULT_REMINDER_TIME,
       };
 
       await repository.saveNotificationSettings(settings);
@@ -166,6 +171,7 @@ export function describeRepositoryContract(
         prePrompt: 'accepted',
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': true },
+        reminderTime: DEFAULT_REMINDER_TIME,
       });
 
       await repository.clear();

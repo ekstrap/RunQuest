@@ -3,9 +3,11 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 
 import SettingsScreen from '@/app/settings';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
-import type { NotificationSettings } from '@/src/domain/types';
+import { DEFAULT_REMINDER_TIME, type NotificationSettings } from '@/src/domain/types';
 import { FakeNotificationPermissions } from '@/src/notifications/notification-permissions';
+import { FakeNotificationScheduler } from '@/src/notifications/notification-scheduler';
 import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
+import { NotificationSchedulerProvider } from '@/src/providers/notification-scheduler-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
 jest.mock('expo-router', () => ({
@@ -16,6 +18,7 @@ const OPTED_IN: NotificationSettings = {
   prePrompt: 'accepted',
   osPermission: 'granted',
   categories: { reminder: true, 're-engagement': true },
+  reminderTime: DEFAULT_REMINDER_TIME,
 };
 
 async function renderSettings(
@@ -23,19 +26,23 @@ async function renderSettings(
   permissions = new FakeNotificationPermissions('granted'),
 ) {
   const repository = new InMemoryRepository();
+  await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
   if (stored) {
     await repository.saveNotificationSettings(stored);
   }
+  const scheduler = new FakeNotificationScheduler();
   render(
     <RepositoryProvider repository={repository}>
       <NotificationPermissionsProvider permissions={permissions}>
-        <SettingsScreen />
+        <NotificationSchedulerProvider scheduler={scheduler}>
+          <SettingsScreen />
+        </NotificationSchedulerProvider>
       </NotificationPermissionsProvider>
     </RepositoryProvider>,
   );
   // Let the initial read settle.
   await waitFor(() => expect(screen.getByText('Reminders')).toBeTruthy());
-  return { repository, permissions };
+  return { repository, permissions, scheduler };
 }
 
 describe('Settings — per-category notification toggles (DESIGN.md §3.21.2)', () => {
@@ -112,6 +119,7 @@ describe('Settings — re-asking after a soft decline (§3.21.2)', () => {
     prePrompt: 'not-now',
     osPermission: 'undetermined',
     categories: { reminder: true, 're-engagement': true },
+    reminderTime: DEFAULT_REMINDER_TIME,
   };
 
   it('offers to turn notifications on for a user who said "not now"', async () => {
@@ -164,5 +172,70 @@ describe('Settings — re-asking after a soft decline (§3.21.2)', () => {
 
     expect(screen.getByText('Turn on notifications')).toBeTruthy();
     expect(screen.getByTestId('toggle-reminder').props.value).toBe(true);
+  });
+});
+
+describe('Settings — reminder time (DESIGN.md §3.21.1b)', () => {
+  it('starts at 18:00, the time a newcomer can act on', async () => {
+    await renderSettings();
+
+    expect(screen.getByTestId('reminder-time')).toHaveTextContent('18:00');
+  });
+
+  it('steps the time and reschedules against it', async () => {
+    const { repository, scheduler } = await renderSettings();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('reminder-later'));
+    });
+
+    expect(screen.getByTestId('reminder-time')).toHaveTextContent('18:30');
+    await waitFor(async () =>
+      expect((await repository.getNotificationSettings())?.reminderTime).toEqual({
+        hour: 18,
+        minute: 30,
+      }),
+    );
+    await waitFor(() => {
+      expect(scheduler.scheduled).not.toHaveLength(0);
+      for (const planned of scheduler.scheduled) {
+        expect(new Date(planned.fireAt).getMinutes()).toBe(30);
+      }
+    });
+  });
+
+  it('offers no day-picker — which days is not the user’s to choose (§3.21.1b)', async () => {
+    await renderSettings();
+
+    for (const day of ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']) {
+      expect(screen.queryByText(new RegExp(`^${day}$`))).toBeNull();
+    }
+  });
+
+  it('hides the time control when reminders are switched off', async () => {
+    await renderSettings({ ...OPTED_IN, categories: { reminder: false, 're-engagement': true } });
+
+    expect(screen.queryByTestId('reminder-time-section')).toBeNull();
+  });
+
+  it('hides the time control until the OS has actually granted permission', async () => {
+    await renderSettings(
+      { ...OPTED_IN, osPermission: 'denied' },
+      new FakeNotificationPermissions('denied'),
+    );
+
+    expect(screen.queryByTestId('reminder-time-section')).toBeNull();
+  });
+
+  it('cancels every pending notification when a category is switched off', async () => {
+    const { scheduler } = await renderSettings();
+
+    await act(async () => {
+      fireEvent.press(screen.getByTestId('toggle-reminder'));
+    });
+
+    await waitFor(() =>
+      expect(scheduler.scheduled.filter((p) => p.kind === 'session-invitation')).toEqual([]),
+    );
   });
 });

@@ -3,8 +3,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react-nativ
 import FirstSessionScreen from '@/app/(onboarding)/first-session';
 import { FakeAuthClient } from '@/src/auth/fake-auth-client';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { DEFAULT_REMINDER_TIME } from '@/src/domain/types';
 import { AuthProvider } from '@/src/providers/auth-provider';
 import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
+import { NotificationSchedulerProvider } from '@/src/providers/notification-scheduler-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
 const mockReplace = jest.fn();
@@ -26,6 +28,7 @@ async function pastNotificationPrompt(): Promise<InMemoryRepository> {
     prePrompt: 'not-now',
     osPermission: 'undetermined',
     categories: { reminder: true, 're-engagement': true },
+    reminderTime: DEFAULT_REMINDER_TIME,
   });
   return repository;
 }
@@ -35,7 +38,9 @@ function renderScreen(client: FakeAuthClient, repository: InMemoryRepository) {
     <AuthProvider client={client}>
       <RepositoryProvider repository={repository}>
         <NotificationPermissionsProvider>
-          <FirstSessionScreen />
+          <NotificationSchedulerProvider>
+            <FirstSessionScreen />
+          </NotificationSchedulerProvider>
         </NotificationPermissionsProvider>
       </RepositoryProvider>
     </AuthProvider>,

@@ -1,4 +1,8 @@
-import type { ProgressionState, SessionRecord } from '@/src/domain/types';
+import {
+  DEFAULT_REMINDER_TIME,
+  type ProgressionState,
+  type SessionRecord,
+} from '@/src/domain/types';
 import { InMemoryKeyValueStore } from './key-value-store';
 import { LocalRepository } from './local-repository';
 import { InMemoryRemoteStore, type RemoteStore } from './remote-store';
@@ -48,6 +52,7 @@ describe('SyncingRepository', () => {
         prePrompt: 'accepted',
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': false },
+        reminderTime: DEFAULT_REMINDER_TIME,
       });
 
       expect(saveProfile).not.toHaveBeenCalled();

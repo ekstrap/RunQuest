@@ -11,8 +11,8 @@ interface NotificationPermissionsProviderProps {
   children: ReactNode;
   /**
    * The permission boundary to inject. Tests pass a fake that records whether
-   * the OS prompt fired; production wires the expo-notifications-backed one
-   * (issue #13). Defaults to the unavailable boundary so the app runs — and
+   * the OS prompt fired; production wires the expo-notifications-backed one.
+   * Defaults to the unavailable boundary so the app runs — and
    * simply never notifies — with no native module.
    */
   permissions?: NotificationPermissions;
