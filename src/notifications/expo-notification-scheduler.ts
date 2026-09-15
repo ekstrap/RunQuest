@@ -1,8 +1,8 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 import type { PlannedNotification } from '@/src/domain/notification-schedule';
 import type { NotificationCategory } from '@/src/domain/types';
+import { loadNotificationsModule } from './expo-notifications-module';
 import type { NotificationScheduler } from './notification-scheduler';
 
 /**
@@ -32,7 +32,8 @@ let channelsReady: Promise<void> | null = null;
 
 /** Create the Android channels once per app run. A no-op on other platforms. */
 function ensureChannels(): Promise<void> {
-  if (Platform.OS !== 'android') {
+  const Notifications = loadNotificationsModule();
+  if (!Notifications || Platform.OS !== 'android') {
     return Promise.resolve();
   }
   channelsReady ??= Promise.all(
@@ -63,6 +64,11 @@ function ensureChannels(): Promise<void> {
  */
 export const expoNotificationScheduler: NotificationScheduler = {
   async replaceAll(plan: PlannedNotification[]): Promise<void> {
+    const Notifications = loadNotificationsModule();
+    if (!Notifications) {
+      // No native module: nothing is pending, so there is nothing to replace.
+      return;
+    }
     await ensureChannels();
     await Notifications.cancelAllScheduledNotificationsAsync();
 
@@ -94,6 +100,10 @@ export const expoNotificationScheduler: NotificationScheduler = {
  * noise. Delivery still happens; it just isn't shown.
  */
 export function configureNotificationPresentation(): void {
+  const Notifications = loadNotificationsModule();
+  if (!Notifications) {
+    return;
+  }
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: false,
