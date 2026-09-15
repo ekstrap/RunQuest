@@ -292,25 +292,66 @@ The full level-progression design. The word "level" was previously doing two inc
 
 ### 3.21 Positive notification strategy
 
-The constructive counterpart to the §3.18 hard rule (which forbids loss-aversion / predatory notifications). §3.18 is the fence; this is the blueprint. (Partially resolved — taxonomy and opt-in locked; scheduling, frequency caps, and exact wording still open — see Open Question #2.)
+The constructive counterpart to the §3.18 hard rule (which forbids loss-aversion / predatory notifications). §3.18 is the fence; this is the blueprint. (**RESOLVED 2026-09-15** — taxonomy, opt-in, scheduling, caps, and wording all locked. Open Question #2 is closed.)
 
 **Governing test:** every notification must be *sharing the user's own win, or inviting them to a win they choose* — never *tugging on a fear*.
 
 #### 3.21.1 Taxonomy — what notifications may do (v1)
 
-Three categories ship in v1:
+**Governing rule (added 2026-09-15): a notification exists only to reach the user when they are *not in the app*.** If the triggering event happens while the app is open, the app says it on screen; it does not also push it.
+
+Two categories ship in v1:
 
 1. **Reminders** — *invitations* toward a session ("a 10-minute session today would feel great"). The most direct Pillar-1 lever. Must always read as an opportunity, never "you haven't run in a while."
-2. **Celebrations** — post-hoc positive reinforcement fired *after* a good thing happened (week complete, level-up, lifetime-weeks milestone). Cheapest and safest category.
-3. **Re-engagement / "we miss you"** — for users who've gone quiet (chained to §3.8's graceful framing). The **most dangerous** category — the one that wants to slide into guilt. Allowed only as *warmth* ("your runs are here whenever you are"), never as a tug. Smallest, most tightly-worded, hardest-capped.
+2. **Re-engagement / "we miss you"** — for users who've gone quiet (chained to §3.8's graceful framing). The **most dangerous** category — the one that wants to slide into guilt. Allowed only as *warmth* ("your runs are here whenever you are"), never as a tug. Smallest, most tightly-worded, hardest-capped.
 
-**Excluded from notifications in v1:** **Guidance / tips** (Pillar 2). Valuable but pushed-as-notifications risks clutter and wellness-app drift for low Pillar-1 return. Kept **in-app only**; parked alongside the daily-micro-engagement idea (§4).
+**Excluded from notifications in v1:**
+
+- **Celebrations** (week complete, level-up, lifetime-weeks milestone). *Cut 2026-09-15 — previously the third v1 category.* Every celebration trigger is a completed session, and a session record is only written when the user finishes a run **in the app**. The post-run summary (§3.10) already shows XP and the level-up, and the home screen (§3.11) shows week progress immediately after. A push would duplicate on the lock screen what the user is already looking at. The one gap — a level-up arriving by cloud sync from a second device — is too rare to build for in v1. Celebrations stay **in-app only**; revisit if multi-device use becomes real.
+- **Guidance / tips** (Pillar 2). Valuable but pushed-as-notifications risks clutter and wellness-app drift for low Pillar-1 return. Kept **in-app only**; parked alongside the daily-micro-engagement idea (§4).
+
+#### 3.21.1b Reminder scheduling (resolved 2026-09-15)
+
+- **One reminder time for all days**, default **18:00**, changeable in settings. No per-day times, **no day-picker**, not asked during onboarding (§3.12 is locked at 4 screens). 18:00 because a newcomer can act on it — after work, before the evening closes. A morning default lands mid-rush and trains dismissal.
+- **Fixed anchor days, set by the weekly commitment** and chosen at week start, never shifting:
+  - 2 sessions/week → **Tuesday, Saturday**
+  - 3 sessions/week → **Monday, Wednesday, Saturday**
+  - Always includes a weekend day, where a beginner has unhurried time.
+- **An anchor fires only if** the week is not already complete *and* the user has not run that day. Running early in the week silently removes the later anchors. Nothing is ever added.
+- **HARD RULE — scheduling may read *sessions completed*, never *days remaining*.** The two look alike and are opposites: sessions-completed can only make reminders **rarer**; days-remaining makes them **denser as the deadline nears**, which is a **predatory notification** wearing a scheduling costume. This is why `src/domain/notification-policy.ts` never reads how much of the week is left, and the scheduler must not either.
+- **Rejected:** learning preferred days from run history. Better in theory, but it needs weeks of data the target user does not have yet, it is unpredictable to the user, and it is real logic for a v1 whose job is making week one happen.
+
+#### 3.21.1c Frequency caps (resolved 2026-09-15)
+
+- **Reminders.** Maximum = the **weekly commitment** (2 or 3 per week); maximum one per day. This falls out of the anchor-day model — no extra rule needed. The resulting property: *the number of invitations you can receive in a week equals the number of sessions you signed up for, and only ever goes down.*
+- **Re-engagement.** Maximum **two messages per quiet period**, at **2 quiet weeks** and at **4 quiet weeks**, then silence. (Supersedes the earlier one-per-week-from-week-2-to-6 rule, which permitted four; four "we miss you" messages is a tug, not warmth.) Capped by **total count**, not by rate, because this is the most dangerous category.
+- **No global cap.** Unnecessary: a reminder is already suppressed on a day the user runs, and reminders and re-engagement are mutually exclusive by construction.
+
+#### 3.21.1d Copy (resolved 2026-09-15)
+
+Three rules for all notification copy:
+
+1. **Never name what the user missed.** No gap counts, no "you haven't", no "catch up".
+2. **The reminder states the prescribed duration.** Safe to bake into a pre-scheduled notification because **calibration** only changes between weeks, and anchor days are fixed at week start.
+3. **No emoji** in v1 copy (the celebration strings that carried one are cut).
+
+**`session-invitation`** — three variants in rotation. It is the only frequent kind; one fixed string becomes noise fast.
+
+- "Ready when you are" / "Today's session is 12 minutes."
+- "A good day for 12 minutes" / "It's here whenever it suits you."
+- "12 minutes, no rush" / "Your session is waiting."
+
+**`still-here`** — **one string only**, no variants. Warmth, no ask.
+
+- "Your runs are here" / "Whenever you want them. Start wherever you like."
+
+*Why one string:* variants invite small edits over time, and each edit is a chance to add a tug. One fixed string is easier to protect.
 
 #### 3.21.2 Permission / opt-in
 
 - **Ask during onboarding, on screen 4 (the first-session card, §3.12)** — at the moment of commitment, after the user has invested three screens and is about to tap Start. Not the welcome screen (coldest point, highest decline risk).
   - *Note:* this overrides the general "ask after first value" best practice in favor of handling the toggle up front. The decision was made with eyes open to the lower-grant-rate / permanent-decline tradeoff; the pre-prompt below is the mitigation that makes early asking survivable.
-- **In-app pre-prompt is mandatory.** Before the OS permission prompt fires, show our own friendly screen ("Want gentle reminders + a little celebration when you finish? You're always in control"). A hesitant user taps "not now" on *our* screen (re-askable) instead of burning the **irreversible** OS prompt. Treated as non-negotiable regardless of timing.
+- **In-app pre-prompt is mandatory.** Before the OS permission prompt fires, show our own friendly screen ("Want gentle reminders when a session is waiting? You're always in control"). *Updated 2026-09-15: the old copy promised "a little celebration when you finish", which v1 no longer delivers — see §3.21.1.*. A hesitant user taps "not now" on *our* screen (re-askable) instead of burning the **irreversible** OS prompt. Treated as non-negotiable regardless of timing.
 - **Single friendly ask** at opt-in (no category-picker at that moment — choice-overload at the wrong time). **Per-category toggles live in settings** for later tuning.
 
 ---
@@ -330,12 +371,12 @@ Three categories ship in v1:
 
 ## 5. Open Questions
 
-### Status (2026-06-05)
+### Status (2026-09-15)
 
 The working core of v1 design is locked across §3.1–§3.21. **The team is moving to prototyping.** None of the items below block that. Design status:
 
 - **#1 Level progression — RESOLVED** (§3.20).
-- **#2 Notifications — partially resolved** (§3.21; taxonomy + opt-in locked). Open but non-blocking: reminder scheduling/timing, frequency caps, exact wording — settle during prototyping.
+- **#2 Notifications — RESOLVED 2026-09-15** (§3.21). Scheduling, caps and wording locked; celebrations cut from v1 notifications.
 - **#3 Paywall — RESOLVED for v1** (§3.16): free-only, premium deferred to v2.
 - **#4 Bracket numbers — not a design question, not a blocker.** Owner supplies the numbers directly when ready (see below).
 
@@ -343,9 +384,11 @@ The working core of v1 design is locked across §3.1–§3.21. **The team is mov
 
 1. **Level progression mechanics.** ✅ **RESOLVED 2026-06-05 — see §3.20** (full model: decoupling, what a level-up gives, calibration advancement, invisibility, XP curve). Only *numerical tuning* remains (exact step sizes, XP amounts), which folds into Open Question #4 and is fine to settle during prototyping rather than by design grilling.
 
-2. **Positive notification strategy.** *(Partially resolved 2026-06-05 — see §3.21.)*
-   - **Resolved:** taxonomy (reminders + celebrations + re-engagement in v1; tips excluded), and permission/opt-in (onboarding screen 4, mandatory in-app pre-prompt, single ask, per-category settings).
-   - **Still open:** reminder **scheduling/timing** (leaning: user sets time-of-day default in settings, app picks *days* from week progress, **no day-picker** — but not locked), **frequency caps** per category, and **exact wording** of each category.
+2. **Positive notification strategy.** ✅ **RESOLVED 2026-09-15 — see §3.21.**
+   - **Resolved 2026-06-05:** permission/opt-in (onboarding screen 4, mandatory in-app pre-prompt, single ask, per-category settings).
+   - **Resolved 2026-09-15:** **scheduling** (one settings-wide reminder time defaulting to 18:00; fixed anchor days from the weekly commitment; no day-picker; scheduling may read sessions-completed but never days-remaining — §3.21.1b), **frequency caps** (reminders capped at the weekly commitment; re-engagement capped at two messages per quiet period — §3.21.1c), and **exact wording** (§3.21.1d).
+   - **Also resolved 2026-09-15:** **celebrations cut** from v1 notifications. Every celebration trigger fires while the app is open, so the push duplicates what is already on screen. In-app only. Implementation tracked as a separate issue. See §3.21.1.
+   - **Deferred to prototyping (not blocking):** whether 18:00 and the anchor-day placement survive contact with real users. Both are single-value changes.
 
 3. **Paywall contents.** ✅ **RESOLVED for v1 2026-06-05 — see §3.16:** v1 ships **free-only** (no paywall, no patron tier). Substantive paywall design is deferred to **v2**, when the additive content it would gate (audio, programs, cosmetics) exists. Not a v1 blocker.
 
@@ -363,4 +406,6 @@ The working core of v1 design is locked across §3.1–§3.21. **The team is mov
 - **Free run / off-plan run** — a run done outside the week's 2–3 prescribed sessions. Earns small XP, never penalized.
 - **Prescribed session** — one of the week's recommended runs. Earns base XP; completing all of them earns the week bonus.
 - **Run-type toggle** — user picks walk/run interval, just run, or just walk before starting. Interval is the default for prescribed sessions.
+- **Anchor day** — a fixed weekday on which a reminder may fire, derived from the weekly commitment at week start and never shifted. See §3.21.1b.
+- **Quiet period** — an unbroken run of weeks with no session, measured from the user's last session. Drives re-engagement. See §3.21.1c.
 - **Weekly commitment** — user's chosen 2 or 3 sessions/week. Controls the week-completion target and XP bonus scale. Changeable between weeks only.
