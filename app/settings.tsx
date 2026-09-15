@@ -7,7 +7,7 @@ import {
   isEarliestReminderTime,
   isLatestReminderTime,
   shiftReminderTime,
-} from '@/src/domain/notification-schedule';
+} from '@/src/domain/reminder-time';
 import {
   withNotificationDefaults,
   type NotificationCategory,
@@ -94,12 +94,23 @@ export default function SettingsScreen() {
     setSettings(next);
     // Persist, then rebuild the schedule from it: every control on this screen
     // changes what should be pending with the OS, and leaving that until the
-    // next foreground would show the user a setting that isn't true yet.
-    void repository.saveNotificationSettings(next).then(resyncNotifications);
+    // next foreground would show the user a setting that isn't true yet. Both
+    // steps fail silently — a schedule that could not be written is worth less
+    // than the screen the user is looking at.
+    void repository
+      .saveNotificationSettings(next)
+      .then(resyncNotifications)
+      .catch(() => undefined);
   }
 
   function nudgeReminderTime(deltaMinutes: number) {
-    persist({ ...current, reminderTime: shiftReminderTime(current.reminderTime, deltaMinutes) });
+    // Stamping the change is what stops moving the time *later* from re-arming a
+    // reminder that already fired today — the new time starts tomorrow.
+    persist({
+      ...current,
+      reminderTime: shiftReminderTime(current.reminderTime, deltaMinutes),
+      reminderTimeChangedAt: Date.now(),
+    });
   }
 
   function toggle(category: NotificationCategory) {

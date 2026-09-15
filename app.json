@@ -34,7 +34,6 @@
         {
           "icon": "./assets/images/android-icon-monochrome.png",
           "color": "#2563eb",
-          "defaultChannel": "reminders",
           "enableBackgroundRemoteNotifications": false
         }
       ],

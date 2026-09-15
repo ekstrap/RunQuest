@@ -18,6 +18,12 @@ export interface WeekProgress {
   isComplete: boolean;
 }
 
+/**
+ * One week in milliseconds. Safe as a fixed span because every use anchors both
+ * ends with startOfWeek first — DST's hour of drift never reaches a whole week.
+ */
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 /** Epoch ms of 00:00 local time on the day containing `timestamp`. */
 export function startOfDay(timestamp: number): number {
   const date = new Date(timestamp);

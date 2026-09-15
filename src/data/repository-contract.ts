@@ -130,6 +130,7 @@ export function describeRepositoryContract(
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': false },
         reminderTime: DEFAULT_REMINDER_TIME,
+        reminderTimeChangedAt: null,
       };
 
       await repository.saveNotificationSettings(settings);
@@ -172,6 +173,7 @@ export function describeRepositoryContract(
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': true },
         reminderTime: DEFAULT_REMINDER_TIME,
+        reminderTimeChangedAt: null,
       });
 
       await repository.clear();

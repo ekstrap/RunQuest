@@ -53,6 +53,7 @@ describe('SyncingRepository', () => {
         osPermission: 'granted',
         categories: { reminder: true, 're-engagement': false },
         reminderTime: DEFAULT_REMINDER_TIME,
+        reminderTimeChangedAt: null,
       });
 
       expect(saveProfile).not.toHaveBeenCalled();

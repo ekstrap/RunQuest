@@ -1,10 +1,17 @@
 /**
- * Notification schedule — turns *what is eligible* (notification-policy.ts) into
- * *what is pre-scheduled with the OS, when, and with what words*. Pure and
- * clock-injected like the policy: a plan is a value, so the whole of §3.21.1b–d
- * is testable without a device, a timer, or a notification tray.
+ * Notification schedule — decides *when* a notification may fire and *what it
+ * says*. It owns only those two things: whether the user is eligible at all is
+ * `notification-policy.ts`'s question, and this module asks it rather than
+ * re-deciding it.
  *
- * The shape of this module is the §3.21.1b **hard rule** made structural:
+ * That split is the point. A pre-scheduled notification is a bet that the user
+ * will still be eligible at the moment it fires, so every candidate moment below
+ * is put back through `eligibleNotifications(state, fireAt)` — the *same* gates
+ * the policy applies, evaluated at the future instant rather than now. There is
+ * no second copy of the permission check, the quiet-period rule, the
+ * week-complete rule, or the ran-that-day rule, so the two cannot drift.
+ *
+ * The §3.21.1b **hard rule** is structural here:
  *
  *   > scheduling may read *sessions completed*, never *days remaining*.
  *
@@ -13,8 +20,7 @@
  * nears**, which is a predatory notification wearing a scheduling costume. So
  * the plan is built by *subtraction*: start from the week's fixed anchor days
  * and remove the ones that no longer apply. There is no branch anywhere below
- * that can add a firing, and nothing reads how much of the week is left — the
- * only use of `now` is to refuse to schedule something in the past.
+ * that can add a firing, and nothing reads how much of the week is left.
  *
  * **Scope: the current week only.** A reminder bakes in the prescribed duration
  * (§3.21.1d rule 2), which is safe precisely because calibration changes only
@@ -27,23 +33,19 @@
 import {
   NOTIFICATION_CATALOGUE,
   RE_ENGAGEMENT_QUIET_WEEKS,
-  hasGoneQuiet,
-  weeksSinceLastSession,
+  eligibleNotifications,
   type NotificationFraming,
   type NotificationKind,
+  type NotificationPolicyState,
 } from './notification-policy';
 import { STILL_HERE_COPY, sessionInvitationCopy } from './notification-copy';
 import type {
   NotificationCategory,
-  NotificationSettings,
   Prescription,
   ReminderTime,
-  SessionRecord,
   WeeklyCommitment,
 } from './types';
-import { startOfDay, startOfWeek, weekProgress } from './week';
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+import { WEEK_MS, startOfDay, startOfWeek } from './week';
 
 /**
  * Anchor days per weekly commitment, as JavaScript weekdays (0 = Sunday … 6 =
@@ -81,20 +83,17 @@ export interface PlannedNotification {
 }
 
 /**
- * Everything the plan reads. It is the policy's state plus the current
+ * Everything the plan reads: exactly the policy's state plus the current
  * `prescription`, because a reminder states the duration it is inviting the user
  * to (§3.21.1d). Conspicuously absent: anything describing how much of the week
  * remains, and any record of what has already been sent.
  */
-export interface NotificationPlanState {
-  settings: NotificationSettings;
-  sessions: SessionRecord[];
-  commitment: WeeklyCommitment;
+export interface NotificationPlanState extends NotificationPolicyState {
   prescription: Prescription;
 }
 
 /** Local epoch ms for `time` on the day `dayOffset` days after `dayStart`. */
-function at(dayStart: number, dayOffset: number, time: ReminderTime): number {
+function localTimeOn(dayStart: number, dayOffset: number, time: ReminderTime): number {
   const date = new Date(dayStart);
   // Date arithmetic rather than +n*DAY_MS so a DST boundary inside the week
   // still lands the reminder at the wall-clock time the user chose.
@@ -109,71 +108,73 @@ function daysFromMonday(weekday: number): number {
 }
 
 /**
- * The week's invitations. Built by removing anchors, never by adding them:
- *
- *  - the whole set goes if the week is already complete, or if the user has gone
- *    quiet (they get warmth instead — the two categories are mutually exclusive);
- *  - an individual anchor goes if the user already ran that day, or if its time
- *    has passed.
- *
- * What is left is at most one per anchor day, so "at most the weekly commitment,
- * at most one a day" is a property of the data rather than a rule to enforce.
+ * The week's invitation *moments* — one per anchor day, at the user's reminder
+ * time. Whether each survives is the policy's call, applied below.
  */
-function plannedReminders(state: NotificationPlanState, now: number): PlannedNotification[] {
-  const { settings, sessions, commitment, prescription } = state;
-  if (!settings.categories.reminder) {
-    return [];
-  }
-  if (hasGoneQuiet(weeksSinceLastSession(sessions, now))) {
-    return [];
-  }
-  if (weekProgress(sessions, commitment, now).isComplete) {
-    return [];
-  }
-
+function anchorMoments(
+  state: NotificationPlanState,
+  now: number,
+): { fireAt: number; anchorIndex: number }[] {
   const weekStart = startOfWeek(now);
-  const ranOn = new Set(sessions.map((session) => startOfDay(session.startedAt)));
-  // Rotates the copy variants both within a week and from week to week, so a
-  // user on a 3-session commitment never gets the same three lines twice running.
-  const weekIndex = Math.round(weekStart / WEEK_MS);
-
-  return ANCHOR_DAYS[commitment].flatMap((weekday, anchorIndex) => {
-    const fireAt = at(weekStart, daysFromMonday(weekday), settings.reminderTime);
-    if (fireAt <= now || ranOn.has(startOfDay(fireAt))) {
-      return [];
-    }
-    // weekIndex shifts the rotation week to week; anchorIndex separates the
-    // anchors within one week. With three variants and at most three anchors,
-    // a user never sees the same line twice in a week.
-    const copy = sessionInvitationCopy(prescription.durationMinutes, weekIndex + anchorIndex);
-    return [planned('session-invitation', fireAt, copy)];
-  });
+  // The index is the anchor's position in the *week*, not in what survives, so
+  // a given day's wording is fixed for the whole week however many anchors have
+  // already passed — replanning on Wednesday must not reword Saturday.
+  return ANCHOR_DAYS[state.commitment].map((weekday, anchorIndex) => ({
+    fireAt: localTimeOn(weekStart, daysFromMonday(weekday), state.settings.reminderTime),
+    anchorIndex,
+  }));
 }
 
 /**
- * The quiet period's two check-ins, at 2 and 4 quiet weeks (§3.21.1c), each at
- * the user's reminder time on that week's Monday.
+ * The quiet period's two check-in moments, at 2 and 4 quiet weeks (§3.21.1c),
+ * each at the user's reminder time on that week's Monday.
  *
  * The cap needs no bookkeeping. A quiet period *is* the stretch since the user's
- * last session, so its two milestones are two fixed moments in time; replanning
- * drops the ones that have passed and the user running at all moves the period
- * wholesale. Two is therefore the most that can ever be delivered, with no
- * counter to lose, double-spend, or get out of step with the device's storage.
+ * last session, so its two milestones are two fixed moments in time; the user
+ * running at all moves the period wholesale. Two is therefore the most that can
+ * ever be delivered, with no counter to lose, double-spend, or get out of step
+ * with the device's storage.
  */
-function plannedCheckIns(state: NotificationPlanState, now: number): PlannedNotification[] {
-  const { settings, sessions } = state;
-  if (!settings.categories['re-engagement'] || sessions.length === 0) {
+function checkInMoments(state: NotificationPlanState): number[] {
+  const { sessions, settings } = state;
+  if (sessions.length === 0) {
+    // A user with no history is *new*, not quiet — there is no period to anchor
+    // on. The policy agrees, but we need a last session to do the arithmetic.
     return [];
   }
-  // A user with no history is *new*, not quiet — the guard above — and the
-  // period is anchored on the last session, never on a missed commitment.
-  const latest = Math.max(...sessions.map((session) => session.startedAt));
-  const periodStart = startOfWeek(latest);
+  const periodStart = startOfWeek(Math.max(...sessions.map((session) => session.startedAt)));
+  return RE_ENGAGEMENT_QUIET_WEEKS.map((quietWeeks) =>
+    localTimeOn(periodStart, quietWeeks * 7, settings.reminderTime),
+  );
+}
 
-  return RE_ENGAGEMENT_QUIET_WEEKS.flatMap((quietWeeks) => {
-    const fireAt = at(periodStart, quietWeeks * 7, settings.reminderTime);
-    return fireAt <= now ? [] : [planned('still-here', fireAt, STILL_HERE_COPY)];
-  });
+/**
+ * Keep `fireAt` only if the policy says this kind is eligible *at that moment*,
+ * and only if that moment is one we may still schedule.
+ *
+ * Two clocks matter here, not one. `fireAt > now` is the obvious guard. The
+ * second is subtler: a firing must be dropped on the day the user changed their
+ * reminder time. Otherwise moving the time later — 18:00 to 18:30, at 18:15,
+ * having just been reminded — would re-arm a notification that already fired,
+ * because `fireAt > now` again. That is a second reminder in one day and, on a
+ * check-in milestone, a third message in a quiet period. A reminder-time change
+ * therefore takes effect **tomorrow**, which is a rule that can only ever remove
+ * a notification and is a sentence a user understands.
+ */
+function survives(
+  kind: NotificationKind,
+  fireAt: number,
+  state: NotificationPlanState,
+  now: number,
+): boolean {
+  if (fireAt <= now) {
+    return false;
+  }
+  const changedAt = state.settings.reminderTimeChangedAt;
+  if (changedAt !== null && startOfDay(changedAt) === startOfDay(fireAt)) {
+    return false;
+  }
+  return eligibleNotifications(state, fireAt).some((eligible) => eligible.kind === kind);
 }
 
 function planned(
@@ -195,61 +196,33 @@ function planned(
  * firing first. The caller's job is simply to make the OS's pending set equal
  * this list — so a plan that shrinks is a set of cancellations, and the user is
  * never notified about a session they have already done.
+ *
+ * Every gate other than *when* is the policy's, asked at each candidate moment:
+ * permission, the category toggles, the quiet period, the completed week, and
+ * the day the user already ran all arrive from there.
  */
 export function planNotifications(
   state: NotificationPlanState,
   now: number,
 ): PlannedNotification[] {
-  // No permission, no notifications. Our own pre-prompt is not consent to send —
-  // only the OS's answer is (§3.21.2).
-  if (state.settings.osPermission !== 'granted') {
-    return [];
-  }
-  return [...plannedReminders(state, now), ...plannedCheckIns(state, now)].sort(
-    (a, b) => a.fireAt - b.fireAt,
-  );
-}
+  const weekStart = startOfWeek(now);
+  // Rotates the copy variants both within a week and from week to week, so a
+  // user on a 3-session commitment never gets the same three lines twice running.
+  const weekIndex = Math.round(weekStart / WEEK_MS);
 
-/** How far one nudge of the settings control moves the reminder time. */
-export const REMINDER_TIME_STEP_MINUTES = 30;
+  const invitations = anchorMoments(state, now)
+    .filter(({ fireAt }) => survives('session-invitation', fireAt, state, now))
+    .map(({ fireAt, anchorIndex }) =>
+      planned(
+        'session-invitation',
+        fireAt,
+        sessionInvitationCopy(state.prescription.durationMinutes, weekIndex + anchorIndex),
+      ),
+    );
 
-/**
- * The window a reminder may sit in. Not a preference — a floor under the
- * feature: a 03:00 invitation is a notification nobody can act on, and one that
- * wakes a user is the fastest way to have notifications switched off for good.
- * 05:00–22:00 is wide enough for early risers and night owls both.
- */
-const EARLIEST_REMINDER_MINUTES = 5 * 60;
-const LATEST_REMINDER_MINUTES = 22 * 60;
+  const checkIns = checkInMoments(state)
+    .filter((fireAt) => survives('still-here', fireAt, state, now))
+    .map((fireAt) => planned('still-here', fireAt, STILL_HERE_COPY));
 
-/** Minutes since local midnight. */
-function minutesOfDay(time: ReminderTime): number {
-  return time.hour * 60 + time.minute;
-}
-
-/**
- * Move the reminder time by `deltaMinutes`, clamped to the allowed window. The
- * control that calls this steps rather than free-types, so the user cannot land
- * on a time the product would not stand behind.
- */
-export function shiftReminderTime(time: ReminderTime, deltaMinutes: number): ReminderTime {
-  const minutes = Math.min(
-    LATEST_REMINDER_MINUTES,
-    Math.max(EARLIEST_REMINDER_MINUTES, minutesOfDay(time) + deltaMinutes),
-  );
-  return { hour: Math.floor(minutes / 60), minute: minutes % 60 };
-}
-
-/** True when the time is already at the earliest / latest allowed. */
-export function isEarliestReminderTime(time: ReminderTime): boolean {
-  return minutesOfDay(time) <= EARLIEST_REMINDER_MINUTES;
-}
-
-export function isLatestReminderTime(time: ReminderTime): boolean {
-  return minutesOfDay(time) >= LATEST_REMINDER_MINUTES;
-}
-
-/** 24-hour clock text, e.g. "18:00" — what the settings screen shows. */
-export function formatReminderTime(time: ReminderTime): string {
-  return `${String(time.hour).padStart(2, '0')}:${String(time.minute).padStart(2, '0')}`;
+  return [...invitations, ...checkIns].sort((a, b) => a.fireAt - b.fireAt);
 }

@@ -2,15 +2,11 @@ import { prescriptionForCalibration } from './calibration';
 import { STILL_HERE_COPY } from './notification-copy';
 import {
   ANCHOR_DAYS,
-  REMINDER_TIME_STEP_MINUTES,
-  formatReminderTime,
-  isEarliestReminderTime,
-  isLatestReminderTime,
   planNotifications,
-  shiftReminderTime,
   type NotificationPlanState,
 } from './notification-schedule';
 import { DEFAULT_NOTIFICATION_SETTINGS, type SessionRecord } from './types';
+import { startOfDay } from './week';
 
 /** Monday 2026-06-01 09:00 local. */
 const MONDAY_9AM = new Date(2026, 5, 1, 9, 0).getTime();
@@ -291,35 +287,76 @@ describe('notification schedule — gates and the hard rule', () => {
   });
 });
 
-describe('reminder time control', () => {
-  it('steps by half an hour in both directions', () => {
-    expect(shiftReminderTime({ hour: 18, minute: 0 }, REMINDER_TIME_STEP_MINUTES)).toEqual({
-      hour: 18,
-      minute: 30,
+describe('notification schedule — changing the reminder time cannot re-arm a day', () => {
+  /** Tuesday 18:15 — a 2-session week's anchor has just fired at 18:00. */
+  const TUESDAY_AFTER_THE_REMINDER = MONDAY_9AM + DAY_MS + 9 * 60 * 60 * 1000 + 15 * 60 * 1000;
+
+  function movedLater(changedAt: number | null): NotificationPlanState {
+    const base = optedIn();
+    return optedIn({
+      settings: {
+        ...base.settings,
+        reminderTime: { hour: 18, minute: 30 },
+        reminderTimeChangedAt: changedAt,
+      },
     });
-    expect(shiftReminderTime({ hour: 18, minute: 0 }, -REMINDER_TIME_STEP_MINUTES)).toEqual({
-      hour: 17,
-      minute: 30,
-    });
+  }
+
+  it('drops today’s firing when the time was moved later today', () => {
+    // Without the stamp the 18:30 slot is still in the future, so it would be
+    // scheduled and the user would be reminded twice in one day.
+    const unstamped = planNotifications(movedLater(null), TUESDAY_AFTER_THE_REMINDER);
+    expect(unstamped.map((p) => new Date(p.fireAt).getDay())).toContain(2);
+
+    const stamped = planNotifications(
+      movedLater(TUESDAY_AFTER_THE_REMINDER),
+      TUESDAY_AFTER_THE_REMINDER,
+    );
+    expect(stamped.map((p) => new Date(p.fireAt).getDay())).not.toContain(2);
   });
 
-  it('never lands on a time nobody could act on', () => {
-    expect(shiftReminderTime({ hour: 5, minute: 0 }, -REMINDER_TIME_STEP_MINUTES)).toEqual({
-      hour: 5,
-      minute: 0,
-    });
-    expect(shiftReminderTime({ hour: 22, minute: 0 }, REMINDER_TIME_STEP_MINUTES)).toEqual({
-      hour: 22,
-      minute: 0,
-    });
-    expect(isEarliestReminderTime({ hour: 5, minute: 0 })).toBe(true);
-    expect(isLatestReminderTime({ hour: 22, minute: 0 })).toBe(true);
-    expect(isEarliestReminderTime({ hour: 18, minute: 0 })).toBe(false);
-    expect(isLatestReminderTime({ hour: 18, minute: 0 })).toBe(false);
+  it('applies the new time from the next anchor day onward', () => {
+    const plan = planNotifications(
+      movedLater(TUESDAY_AFTER_THE_REMINDER),
+      TUESDAY_AFTER_THE_REMINDER,
+    );
+
+    expect(plan).toHaveLength(1);
+    expect(new Date(plan[0].fireAt).getDay()).toBe(6); // Saturday
+    expect(new Date(plan[0].fireAt).getMinutes()).toBe(30);
   });
 
-  it('shows a 24-hour clock', () => {
-    expect(formatReminderTime({ hour: 7, minute: 30 })).toBe('07:30');
-    expect(formatReminderTime({ hour: 18, minute: 0 })).toBe('18:00');
+  it('never lets a quiet period exceed its two check-ins', () => {
+    // The milestone fired this morning; moving the time later must not add a
+    // third message to a period §3.21.1c caps at two.
+    const lastRun = MONDAY_9AM - 2 * WEEK_MS;
+    const milestoneDay = MONDAY_9AM + 10 * 60 * 60 * 1000; // Monday 19:00
+    const base = optedIn();
+    const state = optedIn({
+      sessions: [session(lastRun)],
+      settings: {
+        ...base.settings,
+        reminderTime: { hour: 19, minute: 30 },
+        reminderTimeChangedAt: milestoneDay,
+      },
+    });
+
+    const checkIns = planNotifications(state, milestoneDay).filter((p) => p.kind === 'still-here');
+
+    expect(checkIns.map((p) => startOfDay(p.fireAt))).not.toContain(startOfDay(milestoneDay));
+  });
+});
+
+describe('notification schedule — wording is fixed for the week', () => {
+  it('does not reword a later anchor as earlier ones pass', () => {
+    const state = optedIn({ commitment: 3 });
+    const saturdayOn = (now: number) =>
+      planNotifications(state, now).find((p) => new Date(p.fireAt).getDay() === 6);
+
+    const fromMonday = saturdayOn(MONDAY_9AM);
+    const fromThursday = saturdayOn(MONDAY_9AM + 3 * DAY_MS);
+
+    expect(fromMonday).toBeDefined();
+    expect(fromThursday).toEqual(fromMonday);
   });
 });

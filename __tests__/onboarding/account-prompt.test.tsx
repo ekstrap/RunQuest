@@ -29,6 +29,7 @@ async function pastNotificationPrompt(): Promise<InMemoryRepository> {
     osPermission: 'undetermined',
     categories: { reminder: true, 're-engagement': true },
     reminderTime: DEFAULT_REMINDER_TIME,
+    reminderTimeChangedAt: null,
   });
   return repository;
 }

@@ -54,6 +54,7 @@ describe('FirstSessionScreen', () => {
       osPermission: 'undetermined',
       categories: { reminder: true, 're-engagement': true },
       reminderTime: DEFAULT_REMINDER_TIME,
+      reminderTimeChangedAt: null,
     });
     const saveOnboarding = jest.spyOn(repository, 'saveOnboarding');
     renderWithRepository(repository);

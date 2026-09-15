@@ -34,11 +34,7 @@ import type {
   SessionRecord,
   WeeklyCommitment,
 } from './types';
-import { startOfDay, startOfWeek, weekProgress } from './week';
-
-// Weeks are anchored via startOfWeek, so a fixed 7-day span is fine; the DST
-// hour drift never reaches a whole week (same acceptable v1 edge as streak.ts).
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+import { WEEK_MS, startOfDay, startOfWeek, weekProgress } from './week';
 
 /**
  * Weeks of silence after which a user counts as *quiet* — past this they get

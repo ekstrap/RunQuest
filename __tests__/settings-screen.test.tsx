@@ -19,6 +19,7 @@ const OPTED_IN: NotificationSettings = {
   osPermission: 'granted',
   categories: { reminder: true, 're-engagement': true },
   reminderTime: DEFAULT_REMINDER_TIME,
+  reminderTimeChangedAt: null,
 };
 
 async function renderSettings(
@@ -120,6 +121,7 @@ describe('Settings — re-asking after a soft decline (§3.21.2)', () => {
     osPermission: 'undetermined',
     categories: { reminder: true, 're-engagement': true },
     reminderTime: DEFAULT_REMINDER_TIME,
+    reminderTimeChangedAt: null,
   };
 
   it('offers to turn notifications on for a user who said "not now"', async () => {

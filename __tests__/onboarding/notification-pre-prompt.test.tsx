@@ -90,6 +90,7 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
         // A single ask turns all three categories on; settings tunes them later.
         categories: { reminder: true, 're-engagement': true },
         reminderTime: DEFAULT_REMINDER_TIME,
+        reminderTimeChangedAt: null,
       }),
     );
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/home'));
@@ -168,6 +169,7 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
       osPermission: 'undetermined',
       categories: { reminder: true, 're-engagement': true },
       reminderTime: DEFAULT_REMINDER_TIME,
+      reminderTimeChangedAt: null,
     });
     renderScreen({ repository });
 

@@ -156,6 +156,16 @@ export interface NotificationSettings {
   categories: NotificationCategoryToggles;
   /** When reminders fire, local time. Settings-editable (§3.21.1b). */
   reminderTime: ReminderTime;
+  /**
+   * When `reminderTime` was last changed (epoch ms), or null if never.
+   *
+   * Not history for its own sake — it is the one fact that keeps the frequency
+   * caps honest. A pending notification is identified by the moment it fires, so
+   * moving the time later on a day that has already delivered one would re-arm
+   * it. Knowing the change happened today lets the new time start tomorrow, and
+   * that rule can only ever remove a notification.
+   */
+  reminderTimeChangedAt: number | null;
 }
 
 /**
@@ -167,6 +177,7 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   osPermission: 'undetermined',
   categories: { reminder: true, 're-engagement': true },
   reminderTime: DEFAULT_REMINDER_TIME,
+  reminderTimeChangedAt: null,
 };
 
 /**
