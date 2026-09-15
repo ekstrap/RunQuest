@@ -124,7 +124,7 @@ export function describeRepositoryContract(
       const settings: NotificationSettings = {
         prePrompt: 'accepted',
         osPermission: 'granted',
-        categories: { reminder: true, celebration: true, 're-engagement': false },
+        categories: { reminder: true, 're-engagement': false },
       };
 
       await repository.saveNotificationSettings(settings);
@@ -165,7 +165,7 @@ export function describeRepositoryContract(
       await repository.saveNotificationSettings({
         prePrompt: 'accepted',
         osPermission: 'granted',
-        categories: { reminder: true, celebration: true, 're-engagement': true },
+        categories: { reminder: true, 're-engagement': true },
       });
 
       await repository.clear();

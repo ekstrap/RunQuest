@@ -56,9 +56,11 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
 
     expect(await screen.findByText(PRE_PROMPT_YES)).toBeTruthy();
     expect(screen.getByText(PRE_PROMPT_NO)).toBeTruthy();
-    // Invitation + celebration, and an explicit promise of control.
+    // An invitation and an explicit promise of control — and no promise of a
+    // celebration, which v1 does not deliver by push (DESIGN.md §3.21.2).
     expect(screen.getByText(/gentle reminders/i)).toBeTruthy();
     expect(screen.getByText(/in control/i)).toBeTruthy();
+    expect(screen.queryByText(/celebration/i)).toBeNull();
     // The irreversible OS prompt has not been burned yet.
     expect(permissions.requestCount).toBe(0);
     expect(mockReplace).not.toHaveBeenCalled();
@@ -80,7 +82,7 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
         prePrompt: 'accepted',
         osPermission: 'granted',
         // A single ask turns all three categories on; settings tunes them later.
-        categories: { reminder: true, celebration: true, 're-engagement': true },
+        categories: { reminder: true, 're-engagement': true },
       }),
     );
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/home'));
@@ -124,7 +126,7 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
     await repository.saveNotificationSettings({
       prePrompt: 'not-now',
       osPermission: 'undetermined',
-      categories: { reminder: true, celebration: true, 're-engagement': true },
+      categories: { reminder: true, 're-engagement': true },
     });
     renderScreen({ repository });
 

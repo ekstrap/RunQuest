@@ -252,8 +252,8 @@ into DESIGN.md:
    set in settings, the app picks *which days* from your week progress, and
    there's **no manual day-picker**. Confirm or change this.
 2. **Frequency caps** — the maximum number per week for each category
-   (*reminders*, *celebrations*, *re-engagement*). Re-engagement ("we miss
-   you") should be the most tightly capped.
+   (*reminders*, *re-engagement*). Re-engagement ("we miss you") should be the
+   most tightly capped.
 3. **Final wording** — the exact copy for each notification. Re-read the
    **HARD RULE: no predatory notifications** — nothing that uses loss/threat
    ("your streak ends in 4 hours"). Encouragement and invitation only.
@@ -266,7 +266,9 @@ into DESIGN.md:
 5. Verify a **reminder** actually fires at the configured time of day. (The
    agent can give you a debug toggle to fire one in 1 minute so you don't wait
    all day.)
-6. Verify a **celebration** fires after completing a session.
+6. Confirm **no celebration push** arrives after a session — celebrations are
+   in-app only in v1 (DESIGN.md §3.21.1); the post-run summary is the whole
+   celebration.
 7. Lock the phone / close the app and confirm notifications still arrive
    (they're delivered by the OS, not the running app).
 8. **Sanity-check against the HARD RULE:** read every notification that fired.

@@ -94,11 +94,11 @@ The app is solo, free, ad-free, and cross-platform (iOS + Android) from day one.
 ### Notifications
 
 47. As a user, I want gentle reminder notifications framed as invitations ("a 10-minute session today would feel great"), so that I'm nudged without pressure.
-48. As a user, I want celebration notifications after good things happen (week complete, level-up, lifetime milestone), so that my wins are acknowledged.
+48. As a user, I want my wins (week complete, level-up, lifetime milestone) acknowledged **in the app** — the post-run summary and home screen — rather than pushed to my lock screen, so that nothing duplicates what I'm already looking at. *(Celebration notifications cut 2026-09-15; see DESIGN.md §3.21.1.)*
 49. As a lapsing user, I want any "we miss you" message to read as warmth, never as a threat about losing progress, so that I never feel manipulated.
 50. As a user, I want to never receive a loss-aversion / countdown-to-shame notification, so that the app stays trustworthy.
 51. As a user, I want to be asked about notifications at the moment I'm about to start my first run, with a friendly in-app explanation before the system permission prompt, so that I can decline softly without permanently locking myself out.
-52. As a user, I want per-category notification toggles in settings, so that I can tune reminders, celebrations, and check-ins independently later.
+52. As a user, I want per-category notification toggles in settings, so that I can tune reminders and check-ins independently later.
 
 ### Platform, account & data
 

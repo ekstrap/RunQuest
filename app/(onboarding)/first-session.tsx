@@ -136,7 +136,7 @@ export default function FirstSessionScreen() {
       {prompt === 'notifications' ? (
         <PromptSheet
           heading="Want a nudge now and then?"
-          body="Gentle reminders when a session is waiting, and a little celebration when you finish. You're always in control — change this any time in settings."
+          body="Gentle reminders when a session is waiting. You're always in control — change this any time in settings."
           primaryLabel="Sounds good"
           onPrimary={handleNotificationsYes}
           secondaryLabel="Not now"

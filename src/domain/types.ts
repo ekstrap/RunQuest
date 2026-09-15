@@ -100,18 +100,23 @@ export interface OnboardingState {
 }
 
 /**
- * The three notification categories that ship in v1 (DESIGN.md §3.21.1).
+ * The two notification categories that ship in v1 (DESIGN.md §3.21.1).
  * Deliberately closed: a category outside this union — anything whose purpose is
  * loss aversion ("your streak ends in 4 hours") — is a *predatory notification*
- * and is forbidden by the §3.18 hard rule. Tips are excluded from notifications
- * in v1 (in-app only).
+ * and is forbidden by the §3.18 hard rule.
+ *
+ * A notification exists only to reach the user when they are **not in the app**.
+ * That test is what excludes tips *and* celebrations from v1: every celebration
+ * trigger is a finished session, which only happens with the app open, so the
+ * push would duplicate the post-run summary the user is already looking at. Both
+ * live in-app only.
  */
-export type NotificationCategory = 'reminder' | 'celebration' | 're-engagement';
+export type NotificationCategory = 'reminder' | 're-engagement';
 
 /**
  * Per-category toggles, tunable in settings (§3.21.2). Opt-in itself is a
- * *single* friendly ask — no category picker at that moment — so all three start
- * on together and the user narrows them later if they want to.
+ * *single* friendly ask — no category picker at that moment — so both start on
+ * together and the user narrows them later if they want to.
  */
 export type NotificationCategoryToggles = Record<NotificationCategory, boolean>;
 
@@ -133,11 +138,11 @@ export interface NotificationSettings {
 }
 
 /**
- * A fresh user: never asked, no OS permission, and — once they do opt in — all
- * three categories on (single ask, §3.21.2).
+ * A fresh user: never asked, no OS permission, and — once they do opt in — both
+ * categories on (single ask, §3.21.2).
  */
 export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   prePrompt: 'unasked',
   osPermission: 'undetermined',
-  categories: { reminder: true, celebration: true, 're-engagement': true },
+  categories: { reminder: true, 're-engagement': true },
 };
