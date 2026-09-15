@@ -44,3 +44,7 @@ app-example
 
 # generated QA sheets (regenerable from the qa-sheet skill)
 qa/
+
+# editor swap files
+*.swp
+*.swo
