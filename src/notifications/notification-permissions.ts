@@ -8,8 +8,8 @@ export type NotificationPermissionStatus = NotificationSettings['osPermission'];
  * boundaries": OS notification delivery is a boundary to inject). Two methods,
  * SDK-style, so tests can drive the permission flow without a device.
  *
- * Deliberately *only* permission — actual scheduling and delivery land with
- * issue #13 behind their own adapter, which is why nothing here can send
+ * Deliberately *only* permission — scheduling and delivery live behind their own
+ * adapter ({@link NotificationScheduler}), which is why nothing here can send
  * anything.
  *
  * `request()` fires the **irreversible** OS prompt: on both platforms a user
@@ -26,11 +26,11 @@ export interface NotificationPermissions {
 }
 
 /**
- * Default boundary for a build with no notification module wired up yet (the
- * expo-notifications integration is issue #13, and needs a dev build to test).
+ * Default boundary for a build where the native module is unavailable (the web
+ * build; the expo-notifications-backed one needs a dev build to run at all).
  * Reports "undetermined" and never claims a grant, so the policy engine — which
  * requires a real grant — yields nothing and the app simply doesn't notify.
- * Every screen in this slice still works.
+ * Every screen still works.
  */
 export const unavailableNotificationPermissions: NotificationPermissions = {
   async getStatus() {

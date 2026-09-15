@@ -2,10 +2,21 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactElement } from 'react';
 
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { DEFAULT_NOTIFICATION_SETTINGS } from '@/src/domain/types';
 import { sessionsInWeek, startOfWeek } from '@/src/domain/week';
 import type { CueEvent } from '@/src/domain/interval-cues';
+import {
+  FakeNotificationPermissions,
+  type NotificationPermissions,
+} from '@/src/notifications/notification-permissions';
+import {
+  FakeNotificationScheduler,
+  type NotificationScheduler,
+} from '@/src/notifications/notification-scheduler';
 import { CuePlayerProvider } from '@/src/providers/cue-player-provider';
 import { LocationProvider } from '@/src/providers/location-provider';
+import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
+import { NotificationSchedulerProvider } from '@/src/providers/notification-scheduler-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 import type { CuePlayer } from '@/src/run/cue-player';
 import type { LocationReading, LocationSource } from '@/src/run/location-source';
@@ -43,12 +54,24 @@ function renderWithProviders(
     repository,
     source,
     player,
-  }: { repository: InMemoryRepository; source?: LocationSource; player?: CuePlayer },
+    scheduler,
+    permissions,
+  }: {
+    repository: InMemoryRepository;
+    source?: LocationSource;
+    player?: CuePlayer;
+    scheduler?: NotificationScheduler;
+    permissions?: NotificationPermissions;
+  },
 ) {
   return render(
     <RepositoryProvider repository={repository}>
       <LocationProvider source={source}>
-        <CuePlayerProvider player={player}>{ui}</CuePlayerProvider>
+        <CuePlayerProvider player={player}>
+          <NotificationPermissionsProvider permissions={permissions}>
+            <NotificationSchedulerProvider scheduler={scheduler}>{ui}</NotificationSchedulerProvider>
+          </NotificationPermissionsProvider>
+        </CuePlayerProvider>
       </LocationProvider>
     </RepositoryProvider>,
   );
@@ -351,6 +374,34 @@ describe('RunActiveScreen', () => {
       expect(await repository.getCalibrationState()).toBeNull();
       const params = mockReplace.mock.calls[0][0].params;
       expect(params.calibrationSteppedToMinutes).toBeUndefined();
+    });
+  });
+
+  describe('notification resync on finishing (§3.21.1b)', () => {
+    it("drops the day's reminder rather than nudging about a run already done", async () => {
+      const repository = new InMemoryRepository();
+      await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+      await repository.saveNotificationSettings({
+        ...DEFAULT_NOTIFICATION_SETTINGS,
+        prePrompt: 'accepted',
+        osPermission: 'granted',
+      });
+      const scheduler = new FakeNotificationScheduler();
+      const permissions = new FakeNotificationPermissions('granted');
+
+      renderWithProviders(<RunActiveScreen />, { repository, scheduler, permissions });
+      await act(async () => {
+        jest.advanceTimersByTime(600_000);
+      });
+      await act(async () => {
+        fireEvent.press(screen.getByText('End run'));
+      });
+
+      // 2026-06-16 is a Tuesday, an anchor day for a 2-session commitment.
+      const today = new Date().getDay();
+      const invitations = scheduler.scheduled.filter((p) => p.kind === 'session-invitation');
+      expect(scheduler.replaceCount).toBeGreaterThan(0);
+      expect(invitations.map((p) => new Date(p.fireAt).getDay())).not.toContain(today);
     });
   });
 

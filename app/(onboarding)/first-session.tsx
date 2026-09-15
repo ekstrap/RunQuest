@@ -10,6 +10,7 @@ import {
   type WeeklyCommitment,
 } from '@/src/domain/types';
 import { useAuth } from '@/src/providers/auth-provider';
+import { useNotificationResync } from '@/src/notifications/use-notification-sync';
 import { useNotificationPermissions } from '@/src/providers/notification-permissions-provider';
 import { useRepository } from '@/src/providers/repository-provider';
 
@@ -53,6 +54,7 @@ export default function FirstSessionScreen() {
   const repository = useRepository();
   const { user } = useAuth();
   const permissions = useNotificationPermissions();
+  const resyncNotifications = useNotificationResync();
   const params = useLocalSearchParams<{ bracket: string; weeklyCommitment: string }>();
   /** Which of the two post-Start asks is on screen, if any. */
   const [prompt, setPrompt] = useState<'none' | 'notifications' | 'account'>('none');
@@ -93,6 +95,10 @@ export default function FirstSessionScreen() {
       prePrompt,
       osPermission,
     });
+    // A fresh grant means this user's first week of invitations can be scheduled
+    // now rather than at the next foreground — the week they are about to start
+    // is the one that matters most.
+    await resyncNotifications();
     askAboutAccount();
   }
 

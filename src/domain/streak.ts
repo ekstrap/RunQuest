@@ -7,11 +7,10 @@
  */
 
 import type { SessionRecord, WeeklyCommitment } from './types';
-import { countsTowardWeek, startOfWeek } from './week';
+import { WEEK_MS, countsTowardWeek, startOfWeek } from './week';
 
 // Weeks are anchored via startOfWeek, so a fixed 7-day span is fine; the DST
 // hour drift never reaches a whole week (acceptable v1 edge).
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type StreakTier = 'active' | 'resting' | 'miss-you' | 'archived';
 

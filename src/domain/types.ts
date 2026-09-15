@@ -121,6 +121,25 @@ export type NotificationCategory = 'reminder' | 're-engagement';
 export type NotificationCategoryToggles = Record<NotificationCategory, boolean>;
 
 /**
+ * The time of day reminders fire, in local time. **One time for all days**
+ * (§3.21.1b): no per-day times and no day-picker — which days a reminder may
+ * fire on is decided by the anchor days, not by the user.
+ */
+export interface ReminderTime {
+  /** Local hour, 0–23. */
+  hour: number;
+  /** Local minute, 0–59. */
+  minute: number;
+}
+
+/**
+ * 18:00 (§3.21.1b). A newcomer can *act* on an early-evening nudge — after work,
+ * before the evening closes. A morning default lands mid-rush and trains
+ * dismissal, which is worse than not asking at all.
+ */
+export const DEFAULT_REMINDER_TIME: ReminderTime = { hour: 18, minute: 0 };
+
+/**
  * Where the user stands on notifications (DESIGN.md §3.21.2).
  *
  * `prePrompt` tracks *our own* in-app ask, which is mandatory and comes before
@@ -135,6 +154,18 @@ export interface NotificationSettings {
   prePrompt: 'unasked' | 'not-now' | 'accepted';
   osPermission: 'undetermined' | 'granted' | 'denied';
   categories: NotificationCategoryToggles;
+  /** When reminders fire, local time. Settings-editable (§3.21.1b). */
+  reminderTime: ReminderTime;
+  /**
+   * When `reminderTime` was last changed (epoch ms), or null if never.
+   *
+   * Not history for its own sake — it is the one fact that keeps the frequency
+   * caps honest. A pending notification is identified by the moment it fires, so
+   * moving the time later on a day that has already delivered one would re-arm
+   * it. Knowing the change happened today lets the new time start tomorrow, and
+   * that rule can only ever remove a notification.
+   */
+  reminderTimeChangedAt: number | null;
 }
 
 /**
@@ -145,4 +176,24 @@ export const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettings = {
   prePrompt: 'unasked',
   osPermission: 'undetermined',
   categories: { reminder: true, 're-engagement': true },
+  reminderTime: DEFAULT_REMINDER_TIME,
+  reminderTimeChangedAt: null,
 };
+
+/**
+ * Fill in whatever a stored settings blob is missing. Storage holds plain JSON
+ * written by an older build, so a field added later (`reminderTime`) simply is
+ * not there — reading it back has to yield the default rather than `undefined`
+ * leaking into a scheduling calculation. Null (never asked) yields the defaults
+ * whole.
+ */
+export function withNotificationDefaults(
+  stored: NotificationSettings | null,
+): NotificationSettings {
+  return {
+    ...DEFAULT_NOTIFICATION_SETTINGS,
+    ...(stored ?? {}),
+    categories: { ...DEFAULT_NOTIFICATION_SETTINGS.categories, ...stored?.categories },
+    reminderTime: { ...DEFAULT_REMINDER_TIME, ...stored?.reminderTime },
+  };
+}

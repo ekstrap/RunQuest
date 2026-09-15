@@ -3,9 +3,12 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import FirstSessionScreen from '@/app/(onboarding)/first-session';
 import { FakeAuthClient } from '@/src/auth/fake-auth-client';
 import { InMemoryRepository } from '@/src/data/in-memory-repository';
+import { DEFAULT_REMINDER_TIME } from '@/src/domain/types';
 import { FakeNotificationPermissions } from '@/src/notifications/notification-permissions';
+import { FakeNotificationScheduler } from '@/src/notifications/notification-scheduler';
 import { AuthProvider } from '@/src/providers/auth-provider';
 import { NotificationPermissionsProvider } from '@/src/providers/notification-permissions-provider';
+import { NotificationSchedulerProvider } from '@/src/providers/notification-scheduler-provider';
 import { RepositoryProvider } from '@/src/providers/repository-provider';
 
 const mockReplace = jest.fn();
@@ -22,18 +25,21 @@ const PRE_PROMPT_NO = 'Not now';
 function renderScreen({
   repository = new InMemoryRepository(),
   permissions = new FakeNotificationPermissions(),
+  scheduler = new FakeNotificationScheduler(),
   client = new FakeAuthClient(['apple'], { id: 'user-1', provider: 'apple' }),
 } = {}) {
   render(
     <AuthProvider client={client}>
       <RepositoryProvider repository={repository}>
         <NotificationPermissionsProvider permissions={permissions}>
-          <FirstSessionScreen />
+          <NotificationSchedulerProvider scheduler={scheduler}>
+            <FirstSessionScreen />
+          </NotificationSchedulerProvider>
         </NotificationPermissionsProvider>
       </RepositoryProvider>
     </AuthProvider>,
   );
-  return { repository, permissions };
+  return { repository, permissions, scheduler };
 }
 
 async function pressStart() {
@@ -83,9 +89,44 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
         osPermission: 'granted',
         // A single ask turns all three categories on; settings tunes them later.
         categories: { reminder: true, 're-engagement': true },
+        reminderTime: DEFAULT_REMINDER_TIME,
+        reminderTimeChangedAt: null,
       }),
     );
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/home'));
+  });
+
+  it('schedules the first week of invitations as soon as the grant lands', async () => {
+    // The week the user is about to start is the one that matters most, so
+    // opting in schedules straight away rather than waiting for a foreground.
+    const repository = new InMemoryRepository();
+    await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+    const { scheduler } = renderScreen({
+      repository,
+      permissions: new FakeNotificationPermissions('undetermined', 'granted'),
+    });
+    await pressStart();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(PRE_PROMPT_YES));
+    });
+
+    await waitFor(() =>
+      expect(scheduler.scheduled.map((planned) => planned.kind)).toContain('session-invitation'),
+    );
+  });
+
+  it('schedules nothing when the user declines our own pre-prompt', async () => {
+    const repository = new InMemoryRepository();
+    await repository.saveOnboarding({ bracket: 'never-run', weeklyCommitment: 2 });
+    const { scheduler } = renderScreen({ repository });
+    await pressStart();
+
+    await act(async () => {
+      fireEvent.press(screen.getByText(PRE_PROMPT_NO));
+    });
+
+    expect(scheduler.scheduled).toEqual([]);
   });
 
   it('leaves the OS prompt unburned on "Not now", and stays re-askable', async () => {
@@ -127,6 +168,8 @@ describe('Notification pre-prompt (DESIGN.md §3.21.2)', () => {
       prePrompt: 'not-now',
       osPermission: 'undetermined',
       categories: { reminder: true, 're-engagement': true },
+      reminderTime: DEFAULT_REMINDER_TIME,
+      reminderTimeChangedAt: null,
     });
     renderScreen({ repository });
 

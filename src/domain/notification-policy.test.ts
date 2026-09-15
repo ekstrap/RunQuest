@@ -1,6 +1,6 @@
 import {
   NOTIFICATION_CATALOGUE,
-  NO_ACKNOWLEDGEMENTS,
+  RE_ENGAGEMENT_QUIET_WEEKS,
   eligibleNotifications,
   type NotificationPolicyState,
 } from './notification-policy';
@@ -35,7 +35,6 @@ function optedIn(overrides: Partial<NotificationPolicyState> = {}): Notification
     },
     sessions: [],
     commitment: 2,
-    acknowledged: NO_ACKNOWLEDGEMENTS,
     ...overrides,
   };
 }
@@ -116,24 +115,32 @@ describe('notification policy — re-engagement is warmth, tightly capped', () =
     return [session(weekStart), session(weekStart + DAY_MS)];
   };
 
-  it('reaches out once to a user who has gone quiet', () => {
+  it('reaches out to a user who has gone quiet', () => {
     expect(kinds(optedIn({ sessions: quietFortnight() }), MONDAY_9AM)).toContain('still-here');
   });
 
-  it('does not reach out twice in the same week', () => {
-    const state = optedIn({
-      sessions: quietFortnight(),
-      acknowledged: { ...NO_ACKNOWLEDGEMENTS, lastReEngagementAt: MONDAY_9AM - 60 * 60 * 1000 },
+  it('is eligible on exactly two quiet weeks, and never more (§3.21.1c)', () => {
+    // The cap is structural: a warm check-in is a property of *which* quiet week
+    // it is, so there is no counter that could drift past two.
+    const quietWeeksYielding = [0, 1, 2, 3, 4, 5, 6, 7, 10].filter((weeks) => {
+      const lastRun = MONDAY_9AM - weeks * WEEK_MS;
+      return kinds(optedIn({ sessions: [session(lastRun)] }), MONDAY_9AM).includes('still-here');
     });
 
-    expect(kinds(state, MONDAY_9AM)).not.toContain('still-here');
+    expect(quietWeeksYielding).toEqual([...RE_ENGAGEMENT_QUIET_WEEKS]);
+    expect(RE_ENGAGEMENT_QUIET_WEEKS).toHaveLength(2);
   });
 
-  it('may reach out again in a later week', () => {
-    const state = optedIn({
-      sessions: quietFortnight(),
-      acknowledged: { ...NO_ACKNOWLEDGEMENTS, lastReEngagementAt: MONDAY_9AM - WEEK_MS },
-    });
+  it('says nothing in the week between the two check-ins', () => {
+    const state = optedIn({ sessions: [session(MONDAY_9AM - 3 * WEEK_MS)] });
+
+    expect(eligibleNotifications(state, MONDAY_9AM)).toEqual([]);
+  });
+
+  it('starts a fresh quiet period once the user runs again', () => {
+    // Two check-ins already behind them, then a run: going quiet again earns the
+    // same two, because the period is keyed on the last session, not a tally.
+    const state = optedIn({ sessions: [session(MONDAY_9AM - 6 * WEEK_MS), session(MONDAY_9AM - 2 * WEEK_MS)] });
 
     expect(kinds(state, MONDAY_9AM)).toContain('still-here');
   });
@@ -142,7 +149,7 @@ describe('notification policy — re-engagement is warmth, tightly capped', () =
     // A newcomer who ran twice, three weeks apart, and then stopped: no week was
     // ever completed, so a streak-based rule would never notice they went quiet.
     const state = optedIn({
-      sessions: [session(MONDAY_9AM - 5 * WEEK_MS), session(MONDAY_9AM - 3 * WEEK_MS)],
+      sessions: [session(MONDAY_9AM - 5 * WEEK_MS), session(MONDAY_9AM - 2 * WEEK_MS)],
       commitment: 3,
     });
 
@@ -154,7 +161,7 @@ describe('notification policy — re-engagement is warmth, tightly capped', () =
   });
 
   it('stops chasing entirely once they have been quiet a long time', () => {
-    const weekStart = MONDAY_9AM - 6 * WEEK_MS;
+    const weekStart = MONDAY_9AM - 5 * WEEK_MS;
     const state = optedIn({ sessions: [session(weekStart), session(weekStart + DAY_MS)] });
 
     expect(eligibleNotifications(state, MONDAY_9AM)).toEqual([]);

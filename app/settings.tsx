@@ -2,10 +2,18 @@ import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import {
-  DEFAULT_NOTIFICATION_SETTINGS,
+  REMINDER_TIME_STEP_MINUTES,
+  formatReminderTime,
+  isEarliestReminderTime,
+  isLatestReminderTime,
+  shiftReminderTime,
+} from '@/src/domain/reminder-time';
+import {
+  withNotificationDefaults,
   type NotificationCategory,
   type NotificationSettings,
 } from '@/src/domain/types';
+import { useNotificationResync } from '@/src/notifications/use-notification-sync';
 import { useNotificationPermissions } from '@/src/providers/notification-permissions-provider';
 import { useRepository } from '@/src/providers/repository-provider';
 
@@ -48,6 +56,7 @@ const CATEGORY_ROWS: { category: NotificationCategory; title: string; blurb: str
 export default function SettingsScreen() {
   const repository = useRepository();
   const permissions = useNotificationPermissions();
+  const resyncNotifications = useNotificationResync();
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
 
   useEffect(() => {
@@ -58,8 +67,9 @@ export default function SettingsScreen() {
           return;
         }
         // Null means the pre-prompt has never been answered — start from the
-        // defaults so the screen shows what opting in would give them.
-        const base = stored ?? DEFAULT_NOTIFICATION_SETTINGS;
+        // defaults so the screen shows what opting in would give them; a blob
+        // written by an earlier build is topped up the same way.
+        const base = withNotificationDefaults(stored);
         setSettings({ ...base, osPermission });
         // The stored permission is a cache, and the user can revoke ours in the
         // system settings behind our back. Reconciling on mount keeps the policy
@@ -82,7 +92,25 @@ export default function SettingsScreen() {
 
   function persist(next: NotificationSettings) {
     setSettings(next);
-    void repository.saveNotificationSettings(next);
+    // Persist, then rebuild the schedule from it: every control on this screen
+    // changes what should be pending with the OS, and leaving that until the
+    // next foreground would show the user a setting that isn't true yet. Both
+    // steps fail silently — a schedule that could not be written is worth less
+    // than the screen the user is looking at.
+    void repository
+      .saveNotificationSettings(next)
+      .then(resyncNotifications)
+      .catch(() => undefined);
+  }
+
+  function nudgeReminderTime(deltaMinutes: number) {
+    // Stamping the change is what stops moving the time *later* from re-arming a
+    // reminder that already fired today — the new time starts tomorrow.
+    persist({
+      ...current,
+      reminderTime: shiftReminderTime(current.reminderTime, deltaMinutes),
+      reminderTimeChangedAt: Date.now(),
+    });
   }
 
   function toggle(category: NotificationCategory) {
@@ -120,6 +148,49 @@ export default function SettingsScreen() {
               </Pressable>
             </>
           )}
+        </View>
+      )}
+
+      {granted && current.categories.reminder && (
+        <View style={styles.section} testID="reminder-time-section">
+          <Text style={styles.rowTitle}>When reminders arrive</Text>
+          <View style={styles.timeRow}>
+            <Pressable
+              testID="reminder-earlier"
+              disabled={isEarliestReminderTime(current.reminderTime)}
+              onPress={() => nudgeReminderTime(-REMINDER_TIME_STEP_MINUTES)}
+            >
+              <Text
+                style={[
+                  styles.step,
+                  isEarliestReminderTime(current.reminderTime) && styles.stepDisabled,
+                ]}
+              >
+                Earlier
+              </Text>
+            </Pressable>
+            <Text style={styles.time} testID="reminder-time">
+              {formatReminderTime(current.reminderTime)}
+            </Text>
+            <Pressable
+              testID="reminder-later"
+              disabled={isLatestReminderTime(current.reminderTime)}
+              onPress={() => nudgeReminderTime(REMINDER_TIME_STEP_MINUTES)}
+            >
+              <Text
+                style={[
+                  styles.step,
+                  isLatestReminderTime(current.reminderTime) && styles.stepDisabled,
+                ]}
+              >
+                Later
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={styles.blurb}>
+            The same time on any day a reminder is due. Which days those are follows the
+            weekly schedule you chose — there is nothing to pick here.
+          </Text>
         </View>
       )}
 
@@ -167,6 +238,25 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#4b5563',
     marginTop: 6,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  time: {
+    fontSize: 32,
+    fontWeight: '300',
+    fontVariant: ['tabular-nums'],
+  },
+  step: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2563eb',
+  },
+  stepDisabled: {
+    color: '#9ca3af',
   },
   action: {
     fontSize: 16,

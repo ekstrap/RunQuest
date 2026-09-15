@@ -14,6 +14,7 @@ import { buildSessionRecord } from '@/src/domain/session';
 import { buildCueSchedule, type CueEvent } from '@/src/domain/interval-cues';
 import { formatElapsed } from '@/src/domain/elapsed';
 import type { RunType } from '@/src/domain/types';
+import { useNotificationResync } from '@/src/notifications/use-notification-sync';
 import { useRepository } from '@/src/providers/repository-provider';
 import { useLocationSource } from '@/src/providers/location-provider';
 import { useCuePlayer } from '@/src/providers/cue-player-provider';
@@ -44,6 +45,7 @@ function parseRunType(raw: string | undefined): RunType {
 export default function RunActiveScreen() {
   const router = useRouter();
   const repository = useRepository();
+  const resyncNotifications = useNotificationResync();
   const locationSource = useLocationSource();
   const cuePlayer = useCuePlayer();
   const params = useLocalSearchParams<{ mode: string; offPlan?: string }>();
@@ -179,6 +181,13 @@ export default function RunActiveScreen() {
     }
 
     await repository.saveProgression(result.progression);
+
+    // The run just changed what the week looks like, so the pending reminders
+    // are stale: today's anchor has to go (they ran), and a week this session
+    // completed has none left at all. Resyncing here rather than waiting for the
+    // next foreground is what keeps the promise that we never nudge someone
+    // about a session they have already done.
+    await resyncNotifications();
 
     router.replace({
       pathname: '/run/summary',
