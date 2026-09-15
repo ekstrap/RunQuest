@@ -25,7 +25,7 @@ function session(startedAt: number, overrides: Partial<SessionRecord> = {}): Ses
   };
 }
 
-/** An opted-in user with all categories on — the interesting starting point. */
+/** An opted-in user with both categories on — the interesting starting point. */
 function optedIn(overrides: Partial<NotificationPolicyState> = {}): NotificationPolicyState {
   return {
     settings: {
@@ -35,7 +35,6 @@ function optedIn(overrides: Partial<NotificationPolicyState> = {}): Notification
     },
     sessions: [],
     commitment: 2,
-    progression: { xpTotal: 0, level: 1 },
     acknowledged: NO_ACKNOWLEDGEMENTS,
     ...overrides,
   };
@@ -76,18 +75,6 @@ describe('notification policy — permission and toggles gate everything', () =>
     expect(kinds(base, MONDAY_9AM)).toContain('session-invitation');
     expect(kinds(settingsWithout('reminder'), MONDAY_9AM)).not.toContain('session-invitation');
 
-    const celebrating = {
-      sessions: [session(MONDAY_9AM), session(MONDAY_9AM + DAY_MS)],
-      progression: { xpTotal: 250, level: 3 },
-    };
-    const wednesday = MONDAY_9AM + 2 * DAY_MS;
-    expect(kinds(optedIn(celebrating), wednesday)).toEqual(
-      expect.arrayContaining(['week-complete', 'level-up']),
-    );
-    expect(
-      kinds({ ...settingsWithout('celebration'), ...celebrating }, wednesday),
-    ).not.toEqual(expect.arrayContaining(['week-complete', 'level-up']));
-
     const quiet = { sessions: [session(MONDAY_9AM - 2 * WEEK_MS)] };
     expect(kinds(optedIn(quiet), MONDAY_9AM)).toContain('still-here');
     expect(kinds({ ...settingsWithout('re-engagement'), ...quiet }, MONDAY_9AM)).not.toContain(
@@ -120,57 +107,6 @@ describe('notification policy — reminders are invitations', () => {
     const state = optedIn({ sessions: [session(lastWeek), session(lastWeek + DAY_MS)] });
 
     expect(kinds(state, MONDAY_9AM)).toEqual(['still-here']);
-  });
-});
-
-describe('notification policy — celebrations follow the win', () => {
-  it('celebrates a week the moment it is complete', () => {
-    const state = optedIn({ sessions: [session(MONDAY_9AM), session(MONDAY_9AM + DAY_MS)] });
-
-    expect(kinds(state, MONDAY_9AM + 2 * DAY_MS)).toContain('week-complete');
-  });
-
-  it('does not re-celebrate a week already acknowledged', () => {
-    const state = optedIn({
-      sessions: [session(MONDAY_9AM), session(MONDAY_9AM + DAY_MS)],
-      acknowledged: { ...NO_ACKNOWLEDGEMENTS, celebratedWeekStart: new Date(2026, 5, 1).getTime() },
-    });
-
-    expect(kinds(state, MONDAY_9AM + 2 * DAY_MS)).not.toContain('week-complete');
-  });
-
-  it('celebrates a level the user has reached but not yet been told about', () => {
-    const state = optedIn({ progression: { xpTotal: 250, level: 3 } });
-
-    expect(kinds(state, MONDAY_9AM)).toContain('level-up');
-  });
-
-  it('says nothing about a level already celebrated', () => {
-    const state = optedIn({
-      progression: { xpTotal: 250, level: 3 },
-      acknowledged: { ...NO_ACKNOWLEDGEMENTS, celebratedLevel: 3 },
-    });
-
-    expect(kinds(state, MONDAY_9AM)).not.toContain('level-up');
-  });
-
-  it('celebrates a lifetime-weeks milestone', () => {
-    // Four completed weeks, two prescribed sessions each.
-    const sessions: SessionRecord[] = [];
-    for (let week = 1; week <= 4; week += 1) {
-      const weekStart = MONDAY_9AM - week * WEEK_MS;
-      sessions.push(session(weekStart), session(weekStart + DAY_MS));
-    }
-    const state = optedIn({ sessions });
-
-    expect(kinds(state, MONDAY_9AM)).toContain('lifetime-milestone');
-  });
-
-  it('stays quiet on a week count that is not a milestone', () => {
-    const weekStart = MONDAY_9AM - WEEK_MS;
-    const state = optedIn({ sessions: [session(weekStart), session(weekStart + DAY_MS)] });
-
-    expect(kinds(state, MONDAY_9AM)).not.toContain('lifetime-milestone');
   });
 });
 
@@ -225,6 +161,56 @@ describe('notification policy — re-engagement is warmth, tightly capped', () =
   });
 });
 
+describe('notification policy — celebrations are in-app only (§3.21.1)', () => {
+  /** The kinds that were cut when celebrations left the notification surface. */
+  const CELEBRATION_KINDS = ['week-complete', 'level-up', 'lifetime-milestone'];
+
+  it('has no celebration kind left in the catalogue', () => {
+    for (const entry of Object.values(NOTIFICATION_CATALOGUE)) {
+      expect(['reminder', 're-engagement']).toContain(entry.category);
+    }
+    expect(Object.keys(NOTIFICATION_CATALOGUE).sort()).toEqual([
+      'session-invitation',
+      'still-here',
+    ]);
+  });
+
+  it('stays silent about a completed week, a level-up, and a lifetime milestone', () => {
+    // Four completed weeks (a milestone count) with the current week also
+    // complete — the exact state that used to yield all three celebrations.
+    const sessions: SessionRecord[] = [session(MONDAY_9AM), session(MONDAY_9AM + DAY_MS)];
+    for (let week = 1; week <= 4; week += 1) {
+      const weekStart = MONDAY_9AM - week * WEEK_MS;
+      sessions.push(session(weekStart), session(weekStart + DAY_MS));
+    }
+    const state = optedIn({ sessions });
+
+    const emitted = kinds(state, MONDAY_9AM + 2 * DAY_MS);
+
+    for (const cut of CELEBRATION_KINDS) {
+      expect(emitted).not.toContain(cut);
+    }
+  });
+
+  it('ignores a stale celebration toggle left in stored settings', () => {
+    // Nothing shipped, so this is not a migration — but a phone that ran an
+    // earlier build still holds the old key, and reading it must not explode.
+    const base = optedIn();
+    const state: NotificationPolicyState = {
+      ...base,
+      settings: {
+        ...base.settings,
+        categories: {
+          ...base.settings.categories,
+          celebration: true,
+        } as typeof base.settings.categories,
+      },
+    };
+
+    expect(kinds(state, MONDAY_9AM)).toEqual(['session-invitation']);
+  });
+});
+
 describe('notification policy — the no-predatory hard rule (§3.18)', () => {
   /** Every state worth sweeping: engagement level × week progress × time of week. */
   function sweep(): { state: NotificationPolicyState; now: number }[] {
@@ -243,11 +229,7 @@ describe('notification policy — the no-predatory hard rule (§3.18)', () => {
               sessions.push(session(MONDAY_9AM + i * DAY_MS));
             }
             cases.push({
-              state: optedIn({
-                sessions,
-                commitment,
-                progression: { xpTotal: 500, level: 3 },
-              }),
+              state: optedIn({ sessions, commitment }),
               now,
             });
           }
@@ -257,10 +239,10 @@ describe('notification policy — the no-predatory hard rule (§3.18)', () => {
     return cases;
   }
 
-  it('only ever yields invitations, shared wins, and warmth', () => {
+  it('only ever yields invitations and warmth', () => {
     for (const { state, now } of sweep()) {
       for (const notification of eligibleNotifications(state, now)) {
-        expect(['invitation', 'shared-win', 'warmth']).toContain(notification.framing);
+        expect(['invitation', 'warmth']).toContain(notification.framing);
         expect(NOTIFICATION_CATALOGUE[notification.kind].framing).toBe(notification.framing);
       }
     }

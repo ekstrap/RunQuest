@@ -25,7 +25,7 @@ async function pastNotificationPrompt(): Promise<InMemoryRepository> {
   await repository.saveNotificationSettings({
     prePrompt: 'not-now',
     osPermission: 'undetermined',
-    categories: { reminder: true, celebration: true, 're-engagement': true },
+    categories: { reminder: true, 're-engagement': true },
   });
   return repository;
 }

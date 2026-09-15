@@ -47,7 +47,7 @@ describe('SyncingRepository', () => {
       await repository.saveNotificationSettings({
         prePrompt: 'accepted',
         osPermission: 'granted',
-        categories: { reminder: true, celebration: true, 're-engagement': false },
+        categories: { reminder: true, 're-engagement': false },
       });
 
       expect(saveProfile).not.toHaveBeenCalled();

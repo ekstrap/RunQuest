@@ -48,7 +48,7 @@ describe('FirstSessionScreen', () => {
     await repository.saveNotificationSettings({
       prePrompt: 'not-now',
       osPermission: 'undetermined',
-      categories: { reminder: true, celebration: true, 're-engagement': true },
+      categories: { reminder: true, 're-engagement': true },
     });
     const saveOnboarding = jest.spyOn(repository, 'saveOnboarding');
     renderWithRepository(repository);

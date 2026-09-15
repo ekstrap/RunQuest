@@ -10,21 +10,17 @@ import { useNotificationPermissions } from '@/src/providers/notification-permiss
 import { useRepository } from '@/src/providers/repository-provider';
 
 /**
- * The three v1 categories with the copy that describes them (DESIGN.md §3.21.1).
- * Each line has to read as what the category actually is — an invitation, a
- * shared win, or warmth — because a user deciding what to allow deserves to know
- * exactly what they'd be letting in.
+ * The two v1 categories with the copy that describes them (DESIGN.md §3.21.1).
+ * Each line has to read as what the category actually is — an invitation or
+ * warmth — because a user deciding what to allow deserves to know exactly what
+ * they'd be letting in. There is no celebration row: v1 sends no celebration
+ * push (they are in-app only), and a toggle that controls nothing is dishonest.
  */
 const CATEGORY_ROWS: { category: NotificationCategory; title: string; blurb: string }[] = [
   {
     category: 'reminder',
     title: 'Reminders',
     blurb: 'A gentle nudge when a session is waiting for you. Always an invitation.',
-  },
-  {
-    category: 'celebration',
-    title: 'Celebrations',
-    blurb: 'A little cheer after you finish a week, reach a level, or hit a milestone.',
   },
   {
     category: 're-engagement',
@@ -116,8 +112,8 @@ export default function SettingsScreen() {
           ) : (
             <>
               <Text style={styles.blurb}>
-                Reminders and celebrations are off. Turn them on and you stay in control of
-                which ones you get.
+                Notifications are off. Turn them on and you stay in control of which ones
+                you get.
               </Text>
               <Pressable onPress={turnOn}>
                 <Text style={styles.action}>Turn on notifications</Text>

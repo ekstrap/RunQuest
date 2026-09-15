@@ -15,7 +15,7 @@ jest.mock('expo-router', () => ({
 const OPTED_IN: NotificationSettings = {
   prePrompt: 'accepted',
   osPermission: 'granted',
-  categories: { reminder: true, celebration: true, 're-engagement': true },
+  categories: { reminder: true, 're-engagement': true },
 };
 
 async function renderSettings(
@@ -43,18 +43,37 @@ describe('Settings — per-category notification toggles (DESIGN.md §3.21.2)', 
     await renderSettings();
 
     expect(screen.getByTestId('toggle-reminder')).toBeTruthy();
-    expect(screen.getByTestId('toggle-celebration')).toBeTruthy();
     expect(screen.getByTestId('toggle-re-engagement')).toBeTruthy();
+    // No celebration row: v1 sends no celebration push, and a toggle that
+    // controls nothing is dishonest (DESIGN.md §3.21.1).
+    expect(screen.queryByTestId('toggle-celebration')).toBeNull();
+    expect(screen.queryByText(/celebration/i)).toBeNull();
   });
 
   it('reflects the stored value of each toggle', async () => {
     await renderSettings({
       ...OPTED_IN,
-      categories: { reminder: true, celebration: false, 're-engagement': false },
+      categories: { reminder: true, 're-engagement': false },
     });
 
     expect(screen.getByTestId('toggle-reminder').props.value).toBe(true);
-    expect(screen.getByTestId('toggle-celebration').props.value).toBe(false);
+    expect(screen.getByTestId('toggle-re-engagement').props.value).toBe(false);
+  });
+
+  it('renders settings stored by an earlier build that still carry a celebration key', async () => {
+    // Nothing shipped, so this is not a migration — but a phone that ran an
+    // earlier build still holds the old key, and reading it must not explode.
+    await renderSettings({
+      ...OPTED_IN,
+      categories: {
+        reminder: true,
+        're-engagement': true,
+        celebration: true,
+      } as NotificationSettings['categories'],
+    });
+
+    expect(screen.getByTestId('toggle-reminder').props.value).toBe(true);
+    expect(screen.queryByTestId('toggle-celebration')).toBeNull();
   });
 
   it('persists a category the user switches off', async () => {
@@ -67,7 +86,6 @@ describe('Settings — per-category notification toggles (DESIGN.md §3.21.2)', 
     await waitFor(async () =>
       expect((await repository.getNotificationSettings())?.categories).toEqual({
         reminder: true,
-        celebration: true,
         're-engagement': false,
       }),
     );
@@ -76,7 +94,7 @@ describe('Settings — per-category notification toggles (DESIGN.md §3.21.2)', 
   it('switches a category back on', async () => {
     const { repository } = await renderSettings({
       ...OPTED_IN,
-      categories: { reminder: false, celebration: true, 're-engagement': true },
+      categories: { reminder: false, 're-engagement': true },
     });
 
     await act(async () => {
@@ -93,7 +111,7 @@ describe('Settings — re-asking after a soft decline (§3.21.2)', () => {
   const softlyDeclined: NotificationSettings = {
     prePrompt: 'not-now',
     osPermission: 'undetermined',
-    categories: { reminder: true, celebration: true, 're-engagement': true },
+    categories: { reminder: true, 're-engagement': true },
   };
 
   it('offers to turn notifications on for a user who said "not now"', async () => {

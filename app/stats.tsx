@@ -113,7 +113,7 @@ export default function StatsScreen() {
       <View style={styles.section} testID="notification-settings">
         <Text style={styles.sectionLabel}>Notifications</Text>
         <Text style={styles.accountText}>
-          Choose which nudges and celebrations you get. Nothing here is ever a countdown.
+          Choose which nudges you get. Nothing here is ever a countdown.
         </Text>
         <Pressable onPress={() => router.push('/settings')}>
           <Text style={styles.accountAction}>Notification settings</Text>
